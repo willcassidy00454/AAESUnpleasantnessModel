@@ -1,7 +1,5 @@
 from scipy.io import wavfile
 import Colouration
-import EDC
-import matplotlib.pyplot as plt
 
 
 def loadRIR(rir_filepath):

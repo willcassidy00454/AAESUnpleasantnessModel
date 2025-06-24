@@ -36,15 +36,14 @@ def linearToLog(magnitudes, sample_rate, f_min, f_max):
     Convert linear FFT magnitudes to logarithmic frequency space.
 
     Parameters:
-        magnitudes (array): FFT magnitudes (only positive frequencies).
+        magnitudes (array): FFT magnitudes (assumes only positive frequencies from 0 Hz to Nyquist).
         sample_rate (float): Sampling rate in Hz.
-        log_bins (int): Number of logarithmic frequency bins.
+        num_bins (int): Number of logarithmic frequency bins.
         f_min (float): Minimum frequency for log space.
         f_max (float): Maximum frequency, default is Nyquist.
 
     Returns:
-        log_freqs (array): Log-spaced frequency axis.
-        log_mags (array): Interpolated magnitudes in log frequency space.
+        log_mags (array): Interpolated magnitudes in log frequency space between f_min and f_max
     """
     num_bins = len(magnitudes)
     nyquist = sample_rate / 2
@@ -65,7 +64,7 @@ def linearToLog(magnitudes, sample_rate, f_min, f_max):
     interp = interp1d(lin_freqs, magnitudes, kind='linear', bounds_error=False, fill_value=0.0)
     log_mags = interp(log_freqs)
 
-    return log_mags
+    return log_mags, log_freqs
 
 
 def getMidpointsBetween(values):
