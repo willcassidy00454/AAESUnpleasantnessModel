@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.interpolate import interp1d
+from scipy.signal import butter, sosfilt
 
 
 def findIndexOfClosest(list, target):
@@ -89,3 +90,42 @@ def getMeanMagnitudeBetweenFrequencies(half_spectrum_magnitudes, sample_rate, mi
     magnitudes_between = truncateSpectrum(half_spectrum_magnitudes, sample_rate, min_frequency, max_frequency)
     mean = np.mean(magnitudes_between)
     return mean
+
+
+def getOctaveBandsFromIR(rir, sample_rate, octave_band_resolution=1):
+        # Octave bands
+        if octave_band_resolution == 1:
+            octave_band_centres = 1e3 * np.logspace(-6, 5, 12, base=2)
+            centre_to_crossover_factor = 2 ** (1 / 2)
+        else:
+            octave_band_centres = 1e3 * np.logspace(-6, 5, 34, base=2)
+            centre_to_crossover_factor = 2 ** (1 / 6)
+
+        octave_band_centres = octave_band_centres[octave_band_centres > 70]
+        octave_band_centres = octave_band_centres[octave_band_centres < 0.5 * sample_rate]
+        num_bands = len(octave_band_centres)
+        filter_order = 5
+
+        band_signals = np.zeros([len(rir), num_bands])
+        for freq_idx, center_freq in enumerate(octave_band_centres):
+            band_type = ('low' if freq_idx == 0
+                         else ('high' if freq_idx == num_bands - 1
+                               else 'band'))
+
+            bin_lower = center_freq / centre_to_crossover_factor
+            bin_upper = center_freq * centre_to_crossover_factor
+
+            if band_type == 'low':
+                sos = butter(2 * filter_order, bin_upper, 'lowpass', fs=sample_rate, output='sos')
+            elif band_type == 'band':
+                sos = butter(filter_order, (bin_lower, bin_upper), 'bandpass', fs=sample_rate, output='sos')
+            elif band_type == 'high':
+                sos = butter(2 * filter_order, bin_lower, 'highpass', fs=sample_rate, output='sos')
+            else:
+                raise ValueError('"band_type" must be one of ["low", "band", "high"].')
+
+            band_signals[:, freq_idx] = sosfilt(sos, rir)
+
+        # Returns (bands x samples)
+        return band_signals, octave_band_centres
+

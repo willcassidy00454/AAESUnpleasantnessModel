@@ -3,7 +3,7 @@ import statistics
 import matplotlib.pyplot as plt
 import RT
 import Utils
-import EDC
+import Energy
 from scipy.signal import savgol_filter
 
 
@@ -26,7 +26,7 @@ def showPlots(colouration_score, mag_spectrum_log_trunc, mag_spectrum_smoothed, 
     plt.show()
 
 
-def getColouration(rir, sample_rate):
+def getColouration(rir, sample_rate, should_show_plots=False):
     rir_num_samples = len(rir)
 
     # Normalise RIR
@@ -36,7 +36,7 @@ def getColouration(rir, sample_rate):
     rt = RT.estimateRT(rir, sample_rate, -15, -35)
 
     # Window the RIR between the -15 dB and -35 dB times (assert the start should be after the mixing time)
-    edc_dB = EDC.getEDC(rir, sample_rate)
+    edc_dB = Energy.getEDC(rir, sample_rate)
     minus_15_position_samples = Utils.findIndexOfClosest(edc_dB, -15)
     minus_35_position_samples = Utils.findIndexOfClosest(edc_dB, -35)
 
@@ -63,7 +63,7 @@ def getColouration(rir, sample_rate):
 
     # Get smoothed spectrum
     window_length_bins = len(mag_spectrum_log_trunc) // 20
-    mag_spectrum_smoothed = savgol_filter(mag_spectrum_log_trunc, window_length_bins, 2)
+    mag_spectrum_smoothed = savgol_filter(mag_spectrum_log_trunc, window_length_bins, 1)
 
     # Divide magnitude spectrum by smoothed
     mag_over_means = mag_spectrum_log_trunc / mag_spectrum_smoothed
@@ -71,10 +71,11 @@ def getColouration(rir, sample_rate):
     # Output standard deviation of result
     colouration_score = statistics.stdev(mag_over_means)
 
-    showPlots(colouration_score,
-              mag_spectrum_log_trunc,
-              mag_spectrum_smoothed,
-              mag_over_means,
-              mag_spectrum_freqs)
+    if should_show_plots:
+        showPlots(colouration_score,
+                  mag_spectrum_log_trunc,
+                  mag_spectrum_smoothed,
+                  mag_over_means,
+                  mag_spectrum_freqs)
 
     return colouration_score
