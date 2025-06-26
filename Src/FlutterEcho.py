@@ -8,7 +8,7 @@ def showPlots(num_octave_bands, energy_spectra, energy_spectrum_freqs, octave_ba
     fig, axes = plt.subplots(num_octave_bands)
     fig.set_size_inches(6, 8)
     fig.set_layout_engine("tight")
-    plt.suptitle(f"Flutter Echo Score = {flutter_score}")
+    plt.suptitle(f"|FFT(Energy Decay Fluctuations)| (flutter = {round(flutter_score, 3)})")
 
     for octave_band in range(num_octave_bands):
         energy_spectrum = energy_spectra[:, octave_band]
@@ -42,7 +42,7 @@ def getFlutterEchoScore(rir, sample_rate, should_show_plots=False):
         energy_max = np.max(energy_spectrum)
         octave_band_scores[octave_band] = (energy_max - energy_mean) / energy_stddev
 
-    flutter_echo_score = np.mean((octave_band_scores - 2.5) / 4.5)
+    flutter_echo_score = np.mean((octave_band_scores - 2.5) / 4.5) # # # this is arbitrary, remove
 
     if should_show_plots:
         showPlots(num_octave_bands, energy_spectra, energy_spectrum_freqs, octave_band_centres, flutter_echo_score)
