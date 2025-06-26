@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import RT
 import Utils
 import Energy
+from scipy.signal import ShortTimeFFT
 
 
 def showPlots(rir, colouration_score, mag_spectrum_log_trunc, mag_spectrum_smoothed, mag_over_means, mag_spectrum_freqs, sample_rate):
@@ -30,63 +31,61 @@ def getColouration(rir, sample_rate, should_show_plots=False):
     # Normalise RIR
     rir /= np.max(np.abs(rir))
 
-    # Estimate RT from -15 dB to -35 dB, ensuring -35 dB occurs at least 10 dB above noise floor
-    rt = RT.estimateRT(rir, sample_rate, -15, -35)
+    # Estimate RT from -15 dB to -35 dB for each octave band, ensuring -35 dB occurs at least 10 dB above noise floor
+    rir_bands, rir_band_centres = Utils.getOctaveBandsFromIR(rir, sample_rate)
+    compensated_band_rirs = np.zeros_like(rir_bands)
+    band_rts = np.zeros(len(rir_band_centres))
+    for band_index in range(rir_bands.shape[1]):
+        band_rir = rir_bands[:, band_index]
+        band_rts[band_index] = RT.estimateRT(band_rir, sample_rate, -15, -30)
 
-    # Window the RIR between the -15 dB and -35 dB times (assert the start should be after the mixing time)
-    edc_dB = Energy.getEDC(rir, sample_rate)
-    minus_15_position_samples = Utils.findIndexOfClosest(edc_dB, -15)
-    minus_35_position_samples = Utils.findIndexOfClosest(edc_dB, -35)
+        # Window the RIR between the -15 dB and -35 dB times (assert the start should be after the mixing time)
+        edc_dB = Energy.getEDC(band_rir, sample_rate)
+        minus_15_position_samples = Utils.findIndexOfClosest(edc_dB, -15)
+        minus_35_position_samples = Utils.findIndexOfClosest(edc_dB, -30)
 
-    rir_sample_indices = range(rir_num_samples)
-    rir_sample_indices_windowed = rir_sample_indices[minus_15_position_samples:minus_35_position_samples]
+        rir_sample_indices = range(rir_num_samples)
+        rir_sample_indices_windowed = rir_sample_indices[minus_15_position_samples:minus_35_position_samples]
 
-    # Compensate for IR decay shape (multiply IR by exp(6.91 * t / RT))
-    sampling_period = 1.0 / sample_rate
-    rir_windowed_compensated = [rir[sample_index] * np.exp(6.91 * sample_index * sampling_period / rt)
-                             for sample_index in rir_sample_indices_windowed]
+        # Compensate for IR decay shape (multiply IR by exp(6.91 * t / RT))
+        sampling_period = 1.0 / sample_rate
+        band_rir_windowed_compensated = [band_rir[sample_index] * np.exp(6.91 * sample_index * sampling_period / band_rts[band_index])
+                                 for sample_index in rir_sample_indices_windowed]
 
-    # # # # # A non-rectangular windowing function needs applying at the IR extremes to reduce frequency artefacts
+        compensated_band_rirs[:len(band_rir_windowed_compensated), band_index] = np.divide(band_rir_windowed_compensated, np.max(np.abs(band_rir_windowed_compensated)))
 
-    # rir_windowed_compensated /= np.max(np.abs(rir_windowed_compensated))
+    compensated_rir = np.trim_zeros(np.sum(compensated_band_rirs, axis=1))
+
+    mean_rt = np.mean(band_rts)
 
     # Get magnitude spectrum
-    mag_spectrum = np.abs(np.fft.rfft(rir_windowed_compensated))
+    mag_spectrum = np.abs(np.fft.rfft(compensated_rir))
 
     # Truncate result (Schroeder frequency lower, 4 kHz upper) and convert spectrum to log frequency
     room_volume = 5000 # this should be estimated somehow
-    schroeder_frequency = 2000.0 * np.sqrt(rt / room_volume)
+    schroeder_frequency = 2000.0 * np.sqrt(mean_rt / room_volume)
     upper_frequency_limit = 4000
 
     mag_spectrum_log_trunc, mag_spectrum_freqs = Utils.linearToLog(mag_spectrum, sample_rate, schroeder_frequency, upper_frequency_limit)
-    # mag_spectrum_log_trunc = 10 ** (mag_spectrum_log_trunc / 10)
 
     # Get smoothed spectrum
     num_octaves = np.log10(mag_spectrum_freqs[-1] / mag_spectrum_freqs[0]) / np.log10(2)
-    window_size = int((len(mag_spectrum_log_trunc) / num_octaves) * 0.3) # Take 0.15 octave bands
+    window_size = int((len(mag_spectrum_log_trunc) / num_octaves) * 0.15) # Take 0.15 octave bands
     window = np.hamming(window_size)
     window /= np.sum(window ** 2)
-    mirrored_bins = mag_spectrum_log_trunc[:-window_size:-1]
-    mag_spectrum_to_smooth = np.concat([mag_spectrum_log_trunc, mirrored_bins])
+
+    mirrored_bins_start = mag_spectrum_log_trunc[window_size:0:-1]
+    mirrored_bins_end = mag_spectrum_log_trunc[:-window_size-1:-1]
+
+    mag_spectrum_to_smooth = np.concat([mirrored_bins_start, mag_spectrum_log_trunc, mirrored_bins_end])
     mag_spectrum_smoothed = np.convolve(mag_spectrum_to_smooth, window, 'same')
-    mag_spectrum_smoothed = mag_spectrum_smoothed[:len(mag_spectrum_smoothed) - window_size + 1]
+    mag_spectrum_smoothed = mag_spectrum_smoothed[window_size:-window_size]
 
     # Divide magnitude spectrum by smoothed
     mag_over_means = mag_spectrum_log_trunc / mag_spectrum_smoothed
 
-    # Get max 5 samples
-    # maxima = sorted(mag_over_means, reverse=True)[:5]
-
-    # Calculate distance of maxima from mean over stddev
-    # colouration_values = (maxima - np.mean(mag_over_means)) / np.std(mag_over_means)
-
-    # Sum magnitudes of result
-    # colouration_score = np.sum(abs(colouration_values))
-
     # Output standard deviation of result
     colouration_score = np.std(mag_over_means)
-
-    # colouration_score = np.clip((colouration_score - 0.3) / 0.4, 0, 1) # # # this is arbitrary, remove
 
     if should_show_plots:
         showPlots(rir,
