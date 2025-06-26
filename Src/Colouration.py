@@ -1,17 +1,15 @@
 import numpy as np
-import statistics
 import matplotlib.pyplot as plt
 import RT
 import Utils
 import Energy
-from scipy.signal import savgol_filter
 
 
-def showPlots(colouration_score, mag_spectrum_log_trunc, mag_spectrum_smoothed, mag_over_means, mag_spectrum_freqs):
+def showPlots(rir, colouration_score, mag_spectrum_log_trunc, mag_spectrum_smoothed, mag_over_means, mag_spectrum_freqs, sample_rate):
     plt.figure()
     fig, axes = plt.subplots(2)
     fig.set_layout_engine("tight")
-    plt.suptitle(f"Colouration = {round(colouration_score, 3)}")
+    plt.suptitle(f"Colouration (stddev of bottom plot) = {round(colouration_score, 3)}")
     axes[0].set_xscale("log")
     axes[0].set_title('Magnitude Spectrum Raw (dashed) and Smoothed (solid)')
     axes[0].plot(mag_spectrum_freqs, mag_spectrum_log_trunc, 'c--')
@@ -50,9 +48,10 @@ def getColouration(rir, sample_rate, should_show_plots=False):
 
     # # # # # A non-rectangular windowing function needs applying at the IR extremes to reduce frequency artefacts
 
+    # rir_windowed_compensated /= np.max(np.abs(rir_windowed_compensated))
+
     # Get magnitude spectrum
-    mag_spectrum_mirrored = abs(np.fft.fft(rir_windowed_compensated))
-    mag_spectrum = mag_spectrum_mirrored[0:(len(rir_windowed_compensated) // 2) - 1]
+    mag_spectrum = np.abs(np.fft.rfft(rir_windowed_compensated))
 
     # Truncate result (Schroeder frequency lower, 4 kHz upper) and convert spectrum to log frequency
     room_volume = 5000 # this should be estimated somehow
@@ -60,22 +59,42 @@ def getColouration(rir, sample_rate, should_show_plots=False):
     upper_frequency_limit = 4000
 
     mag_spectrum_log_trunc, mag_spectrum_freqs = Utils.linearToLog(mag_spectrum, sample_rate, schroeder_frequency, upper_frequency_limit)
+    # mag_spectrum_log_trunc = 10 ** (mag_spectrum_log_trunc / 10)
 
     # Get smoothed spectrum
-    window_length_bins = len(mag_spectrum_log_trunc) // 20
-    mag_spectrum_smoothed = savgol_filter(mag_spectrum_log_trunc, window_length_bins, 1)
+    num_octaves = np.log10(mag_spectrum_freqs[-1] / mag_spectrum_freqs[0]) / np.log10(2)
+    window_size = int((len(mag_spectrum_log_trunc) / num_octaves) * 0.3) # Take 0.15 octave bands
+    window = np.hamming(window_size)
+    window /= np.sum(window ** 2)
+    mirrored_bins = mag_spectrum_log_trunc[:-window_size:-1]
+    mag_spectrum_to_smooth = np.concat([mag_spectrum_log_trunc, mirrored_bins])
+    mag_spectrum_smoothed = np.convolve(mag_spectrum_to_smooth, window, 'same')
+    mag_spectrum_smoothed = mag_spectrum_smoothed[:len(mag_spectrum_smoothed) - window_size + 1]
 
     # Divide magnitude spectrum by smoothed
     mag_over_means = mag_spectrum_log_trunc / mag_spectrum_smoothed
 
+    # Get max 5 samples
+    # maxima = sorted(mag_over_means, reverse=True)[:5]
+
+    # Calculate distance of maxima from mean over stddev
+    # colouration_values = (maxima - np.mean(mag_over_means)) / np.std(mag_over_means)
+
+    # Sum magnitudes of result
+    # colouration_score = np.sum(abs(colouration_values))
+
     # Output standard deviation of result
-    colouration_score = statistics.stdev(mag_over_means)
+    colouration_score = np.std(mag_over_means)
+
+    # colouration_score = np.clip((colouration_score - 0.3) / 0.4, 0, 1) # # # this is arbitrary, remove
 
     if should_show_plots:
-        showPlots(colouration_score,
+        showPlots(rir,
+                  colouration_score,
                   mag_spectrum_log_trunc,
                   mag_spectrum_smoothed,
                   mag_over_means,
-                  mag_spectrum_freqs)
+                  mag_spectrum_freqs,
+                  sample_rate)
 
     return colouration_score
