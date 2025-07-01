@@ -3,10 +3,9 @@ import matplotlib.pyplot as plt
 import RT
 import Utils
 import Energy
-from scipy.signal import ShortTimeFFT
 
 
-def showPlots(rir, colouration_score, mag_spectrum_log_trunc, mag_spectrum_smoothed, mag_over_means, mag_spectrum_freqs, sample_rate):
+def showPlots(rir, colouration_score, mag_spectrum_log_trunc, mag_spectrum_smoothed, mag_over_means, mag_spectrum_freqs):
     plt.figure()
     fig, axes = plt.subplots(2)
     fig.set_layout_engine("tight")
@@ -31,7 +30,8 @@ def getColouration(rir, sample_rate, should_show_plots=False):
     # Normalise RIR
     rir /= np.max(np.abs(rir))
 
-    # Estimate RT from -15 dB to -35 dB for each octave band, ensuring -35 dB occurs at least 10 dB above noise floor
+    # Estimate RT from -15 dB to -35 dB for each octave band,
+    # ensuring -35 dB occurs at least 10 dB above noise floor # # # (not currently done)
     rir_bands, rir_band_centres = Utils.getOctaveBandsFromIR(rir, sample_rate)
     compensated_band_rirs = np.zeros_like(rir_bands)
     band_rts = np.zeros(len(rir_band_centres))
@@ -93,7 +93,6 @@ def getColouration(rir, sample_rate, should_show_plots=False):
                   mag_spectrum_log_trunc,
                   mag_spectrum_smoothed,
                   mag_over_means,
-                  mag_spectrum_freqs,
-                  sample_rate)
+                  mag_spectrum_freqs)
 
     return colouration_score
