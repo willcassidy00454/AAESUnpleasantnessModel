@@ -16,7 +16,8 @@ def truncateSpectrum(spectrum, sample_rate, min_frequency, max_frequency):
     min_frequency_index = int(np.floor(min_frequency / bin_width))
     max_frequency_index = int(np.floor(max_frequency / bin_width))
     truncated_spectrum = spectrum[min_frequency_index:max_frequency_index]
-    return truncated_spectrum
+    new_freqs = np.linspace(min_frequency, max_frequency, len(truncated_spectrum))
+    return truncated_spectrum, new_freqs
 
 
 def interpolateList(list_to_interpolate, new_length):
@@ -52,20 +53,20 @@ def linearToLog(magnitudes, sample_rate, f_min, f_max):
         f_max = nyquist
 
     # Linear frequency axis (positive frequencies only)
-    lin_freqs = np.linspace(0, nyquist, num_bins)
+    lin_freqs_full = np.linspace(0, nyquist, num_bins)
 
     # Remove DC component (0 Hz) to avoid log(0)
-    lin_freqs = lin_freqs[1:]
+    lin_freqs_full = lin_freqs_full[1:]
     magnitudes = magnitudes[1:]
 
     # Logarithmic frequency axis
-    log_freqs = np.logspace(np.log10(f_min), np.log10(f_max), num_bins)
+    log_freqs_trunc = np.logspace(np.log10(f_min), np.log10(f_max), num_bins)
 
     # Interpolation
-    interp = interp1d(lin_freqs, magnitudes, kind='linear', bounds_error=False, fill_value=0.0)
-    log_mags = interp(log_freqs)
+    interp = interp1d(lin_freqs_full, magnitudes, kind='linear', bounds_error=False, fill_value=0.0)
+    log_mags = interp(log_freqs_trunc)
 
-    return log_mags, log_freqs
+    return log_mags, log_freqs_trunc
 
 
 def getMidpointsBetween(values):
@@ -129,3 +130,12 @@ def getOctaveBandsFromIR(rir, sample_rate, octave_band_resolution=1):
         # Returns (bands x samples)
         return band_signals, octave_band_centres
 
+
+# cartesian_coords: shape = [N, 3 (x, y, z)]
+def cartesianToSpherical(cartesian_coords):
+    spherical_coords = np.zeros_like(cartesian_coords)
+    squared_lateral_plane = cartesian_coords[:, 0] ** 2 + cartesian_coords[:, 1] ** 2
+    spherical_coords[:, 0] = np.sqrt(squared_lateral_plane + cartesian_coords[:, 2] ** 2)
+    spherical_coords[:, 1] = np.arctan2(cartesian_coords[:, 1], cartesian_coords[:, 0])
+    spherical_coords[:, 2] = np.arctan2(cartesian_coords[:, 2], np.sqrt(squared_lateral_plane)) # for elevation angle defined from Z-axis down
+    return spherical_coords
