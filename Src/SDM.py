@@ -33,11 +33,11 @@ def getDOAPerSample(spatial_ir, window_length_samples=5):
 
 # Returns plot_angles_rad, radii_dB
 def getSpatioTemporalMap(spatial_ir,
-                          sample_rate,
-                          start_relative_to_direct_ms=-1,
-                          duration_ms=200,
-                          plane="transverse",
-                          num_plot_angles=300):
+                         sample_rate,
+                         start_relative_to_direct_ms=-1,
+                         duration_ms=200,
+                         plane="transverse",
+                         num_plot_angles=300):
     doa_cartesian = getDOAPerSample(spatial_ir)
 
     # Assumes the direct sound arrives as the maximum sample of the omni channel
@@ -84,7 +84,7 @@ def getSpatioTemporalMap(spatial_ir,
     angles_0toN_quantised = np.round(angles_0to1 * num_plot_angles)
     angles_0toN_wrapped = angles_0toN_quantised % num_plot_angles
 
-    plot_angles_rad = np.linspace(-np.pi, np.pi - (2 * np.pi / num_plot_angles), num_plot_angles)
+    angles_rad = np.linspace(-np.pi, np.pi - (2 * np.pi / num_plot_angles), num_plot_angles)
     radii = np.zeros(num_plot_angles)
 
     # Get energy from the omnidirectional rir channel (this is used for the radius)
@@ -95,14 +95,37 @@ def getSpatioTemporalMap(spatial_ir,
         indices = angles_0toN_wrapped == angle_index
         radii[angle_index] = np.nansum(energy_linear[indices] * np.abs(np.cos(doa_spherical_rad[indices, 2])))
 
-    # window_length = 10
-    # radii_wrapped_for_start = radii[-window_length - 1:-1]
-    # radii_wrapped_for_end = radii[:window_length]
-    # radii_to_smooth = np.concat([radii_wrapped_for_start, radii, radii_wrapped_for_end])
-    # radii_smoothed = radii_to_smooth#savgol_filter(radii_to_smooth, 10, 3)
-    # radii_smoothed = radii_smoothed[window_length:-window_length]
+    window_length = 3
+    radii_wrapped_for_start = radii[-window_length - 1:-1]
+    radii_wrapped_for_end = radii[:window_length]
+    radii_to_smooth = np.concat([radii_wrapped_for_start, radii, radii_wrapped_for_end])
+    radii_smoothed = savgol_filter(radii_to_smooth, window_length, 1)
+    radii_smoothed = radii_smoothed[window_length:-window_length]
 
     # Convert energy radius to decibels, clipping at -60 dB
-    radii_dB = 10 * np.log10(np.clip(radii, 1e-6, None))
+    radii_dB = 10 * np.log10(np.clip(radii_smoothed, 1e-6, None))
 
-    return plot_angles_rad, radii_dB
+    # Mirror along the x-axis to match Treble presentation
+    angles_rad_corrected = np.pi - angles_rad
+
+    return angles_rad_corrected, radii_dB
+
+
+def plotSpatioTemporalMap(spatial_rir, sample_rate, plane="transverse"):
+    fig, axes = plt.subplots(subplot_kw={'projection': 'polar'})
+
+    starts_relative_to_direct_ms = [-1, 200, 800, 1400, 2000]
+
+    for index, duration_ms in enumerate([3, 300, 900, 1500, 2100]):
+        angles_rad, radii_dB = getSpatioTemporalMap(spatial_rir,
+                                                    sample_rate,
+                                                    start_relative_to_direct_ms=starts_relative_to_direct_ms[index],
+                                                    duration_ms=duration_ms,
+                                                    plane=plane,
+                                                    num_plot_angles=200)
+
+        plt.fill(angles_rad, radii_dB, color="black", alpha=0.8 / (index + 1), label=f"{starts_relative_to_direct_ms[index]}-{duration_ms}")
+        axes.set_axisbelow(True)
+
+    plt.legend(title='Time Region (ms)', bbox_to_anchor=(1, 1))
+    plt.show()

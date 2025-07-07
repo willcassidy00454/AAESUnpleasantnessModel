@@ -18,18 +18,10 @@ def predictUnpleasantness(rir_filepath):
 
     # flutter_echo_scores = FlutterEcho.getFlutterEchoScore(spatial_rir[:, 0], sample_rate, True)
 
-    # sos = signal.butter(2, 500 / (sample_rate / 2), 'highpass', output='sos')
+    # sos = signal.butter(2, 40 / (sample_rate / 2), 'highpass', output='sos')
     # spatial_rir = signal.sosfilt(sos, spatial_rir)
 
-    plot_angles_rad, radii_dB = SDM.getSpatioTemporalMap(spatial_rir,
-                                                         sample_rate,
-                                                         start_relative_to_direct_ms=-1,
-                                                         duration_ms=200,
-                                                         plane="transverse",
-                                                         num_plot_angles=200)
-
-    plt.polar(plot_angles_rad, radii_dB)
-    plt.show()
+    SDM.plotSpatioTemporalMap(spatial_rir, sample_rate, "median")
 
     # Compute model
     # model_output = flutter_echo_scores
@@ -38,4 +30,5 @@ def predictUnpleasantness(rir_filepath):
 
 
 if __name__ == "__main__":
-    predictUnpleasantness("/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/SingleLSLeft.wav")
+    filename = "SingleLSLeft.wav"
+    predictUnpleasantness(f"/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/{filename}")
