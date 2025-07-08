@@ -123,9 +123,9 @@ def getSpatioTemporalMap(spatial_ir,
 def plotSpatioTemporalMap(spatial_rir, sample_rate, plane="transverse", num_plot_angles=200):
     fig, axes = plt.subplots(subplot_kw={'projection': 'polar'})
 
-    starts_relative_to_direct_ms = [-1, 200, 800, 1400, 2000]
+    starts_relative_to_direct_ms = [-1, -1, -1, -1, -1, -1]
 
-    for index, duration_ms in enumerate([3, 100, 100, 100, 100]):
+    for index, duration_ms in enumerate([3, 30, 50, 80, 200]):
         angles_rad, radii_dB = getSpatioTemporalMap(spatial_rir,
                                                     sample_rate,
                                                     start_ms=starts_relative_to_direct_ms[index],
@@ -205,6 +205,8 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
         plt.fill(late_angles_rad, radii_late_dB, color="black", alpha=0.3, label=f"Late ({np.round(start_ms)}-{np.round(end_ms)} ms)")
         plt.scatter(late_mean_angle, late_mean_magnitude, label="Mean of Late")
         axes.set_axisbelow(True)
-        plt.legend(loc='upper right', bbox_to_anchor=(1, 1))
+        # plt.legend(loc='upper right', bbox_to_anchor=(1, 1))
         plt.suptitle(f"Spatial Asymmetry Score = {np.round(spatial_score, 2)}")
         plt.show()
+
+    return spatial_score
