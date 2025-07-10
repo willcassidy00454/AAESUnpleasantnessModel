@@ -69,7 +69,9 @@ def getColouration(rir, sample_rate, should_show_plots=False):
     mag_over_means = mag_spectrum_log_trunc / mag_spectrum_smoothed
 
     # Output standard deviation of result
-    colouration_score = np.std(mag_over_means)
+    std_dev = np.std(mag_over_means)
+    peakedness = 10 * np.log10(np.max(mag_over_means) - np.mean(mag_over_means) - std_dev)
+    colouration_score = std_dev + peakedness / 10
 
     if should_show_plots:
         showPlots(rir,
