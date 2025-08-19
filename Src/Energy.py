@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.signal import savgol_filter
+import Utils
+import matplotlib.pyplot as plt
 
 def getEDC(rir, sample_rate):
     integration_limit_samples = len(rir)
@@ -33,12 +35,27 @@ def getEnergyTimeCurve(rir, sample_rate, window_duration_ms: float = 10.0):
 
 
 def getEnergySpectrum(rir, sample_rate, fft_size, etc_window_duration_ms):
-        # Compute energy time curve and divide by the smoothed version
+        # Compute energy time curve
         etc, etc_times = getEnergyTimeCurve(rir, sample_rate, etc_window_duration_ms)
-        smoothed_etc = savgol_filter(etc, window_length=100, polyorder=2)
+
+        # Set smoothing window length such that the minimum energy frequency doesn't get smoothed over
+        min_frequency_to_preserve = 1 # Hz
+        min_period = 1 / min_frequency_to_preserve
+        smoothing_window_length_samples = int(np.floor(min_period / (etc_window_duration_ms / 1000)))
+
+        # Mirror the start and ends of the ETC before smoothing (avoids edge effects), then clip ends after smoothing
+        # window = np.hanning(smoothing_window_length_samples)
+        etc_mirror_start = etc[smoothing_window_length_samples:0:-1]
+        etc_mirror_end = etc[-1:-smoothing_window_length_samples - 1:-1]
+        etc_mirror_padded = np.concat([etc_mirror_start, etc, etc_mirror_end])
+        # smoothed_etc_padded = np.convolve(window, etc_mirror_padded, 'same')
+        smoothed_etc_padded = savgol_filter(etc_mirror_padded, window_length=smoothing_window_length_samples, polyorder=2)
+        smoothed_etc = smoothed_etc_padded[smoothing_window_length_samples:-smoothing_window_length_samples]
+
+        # Divide ETC by smoothed to remove decay shape
         etc_over_smoothed = etc / smoothed_etc
 
-        # Subtract mean
+        # Subtract mean to centre about 0
         etc_over_smoothed_sub_mean = etc_over_smoothed - np.mean(etc_over_smoothed)
 
         # Get magnitude of energy spectrum
