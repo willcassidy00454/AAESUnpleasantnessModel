@@ -121,11 +121,11 @@ def getSpatioTemporalMap(spatial_ir,
 
 
 def plotSpatioTemporalMap(spatial_rir, sample_rate, plane="transverse", num_plot_angles=200):
-    fig, axes = plt.subplots(subplot_kw={'projection': 'polar'})
+    fig, axes = plt.subplots(3, 2, subplot_kw={'projection': 'polar'})
 
-    starts_relative_to_direct_ms = [-1, -1, -1, -1, -1, -1]
+    starts_relative_to_direct_ms = [-1, 10, 100, 200, 400, 800]
 
-    for index, duration_ms in enumerate([3, 30, 50, 80, 200]):
+    for index, duration_ms in enumerate([3,20,20,20,20,20]):
         angles_rad, radii_dB = getSpatioTemporalMap(spatial_rir,
                                                     sample_rate,
                                                     start_ms=starts_relative_to_direct_ms[index],
@@ -134,24 +134,24 @@ def plotSpatioTemporalMap(spatial_rir, sample_rate, plane="transverse", num_plot
                                                     plane=plane,
                                                     num_plot_angles=num_plot_angles)
 
-        plt.fill(angles_rad, radii_dB, color="black", alpha=0.8 / (index + 1),
-                 label=f"{starts_relative_to_direct_ms[index]}-{starts_relative_to_direct_ms[index] + duration_ms}")
-        axes.set_axisbelow(True)
-
-    plt.legend(title='Time Region (ms)', bbox_to_anchor=(1, 1))
+        axes[index % 3][int(index / 3)].fill(angles_rad, radii_dB, color="black", alpha=1 / (index + 1))
+                 # label=f"{starts_relative_to_direct_ms[index]}-{starts_relative_to_direct_ms[index] + duration_ms}")
+        axes[index % 3][int(index / 3)].set_axisbelow(True)
+        # axes[index % 3][int(index / 3)].legend(title='Time Region (ms)', bbox_to_anchor=(1, 1))
+        axes[index % 3][int(index / 3)].set_title(f"{starts_relative_to_direct_ms[index]}-{starts_relative_to_direct_ms[index] + duration_ms}ms", x=1.6, y=0.8)
     plt.show()
 
 
 def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
     # Get EDC of omni component
-    edc_dB, _ = Energy.getEDC(spatial_rir[:, 0], sample_rate)
+    edc_dB, edc_times = Energy.getEDC(spatial_rir[:, 0], sample_rate)
 
     # Find time region between -30 and -40 dB decay (late energy)
     minus_30_position_samples = Utils.findIndexOfClosest(edc_dB, -30)
     minus_40_position_samples = Utils.findIndexOfClosest(edc_dB, -40)
 
-    start_ms = 1000 * minus_30_position_samples / sample_rate
-    end_ms = 1000 * minus_40_position_samples / sample_rate
+    start_ms = edc_times[minus_30_position_samples] * 1000
+    end_ms = edc_times[minus_40_position_samples] * 1000
 
     # Get late energy spatial bins (around the azimuth)
     late_angles_rad, radii_late_dB = getSpatioTemporalMap(spatial_rir,
@@ -183,27 +183,30 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
 
     # Determine whether the late energy directions are weighted more towards one direction, and score highly if that direction differs from the direct energy
     # Find mean angle and mean magnitude of late energy
+    # late_points_cartesian = Utils.pol2cart(radii_late_dB, late_angles_rad)
     late_points_cartesian = Utils.pol2cart(10 ** (radii_late_dB / 10), late_angles_rad)
     late_points_cartesian_mean = [np.mean(late_points_cartesian[0]), np.mean(late_points_cartesian[1])]
-    late_mean_magnitude, late_mean_angle = Utils.cart2pol(late_points_cartesian_mean[0], late_points_cartesian_mean[1])
-    late_mean_magnitude = 10 * np.log10(np.clip(late_mean_magnitude, 1e-12, None)) # Clamp at -80 dB
+    magnitude_of_late_mean_linear, angle_of_late_mean_rad = Utils.cart2pol(late_points_cartesian_mean[0], late_points_cartesian_mean[1])
+    # magnitude_of_late_mean = 10 * np.log10(np.clip(magnitude_of_late_mean, 1e-12, None)) # Clamp at -80 dB
+
+    surface_area_linear = np.mean(10 ** (radii_late_dB / 10)) # represents how homogeneous the late spatial response is, since it is peak-normalised
 
     # Get difference of angle between direct and mean late
-    direct_late_angle_difference = np.abs(direct_angle_rad - late_mean_angle)
+    direct_late_angle_difference = np.abs(direct_angle_rad - angle_of_late_mean_rad)
 
-    # Calculate asymmetry factor as the standard deviation of the azimuth magnitudes in dB
-    range_dB = min_normalised_dB - 5 # Range taken as max (0 dBFS) - min, - 5 dB to visually match the plots
-    asymmetry_factor = 2 * (range_dB - late_mean_magnitude) / range_dB # This is the distance of the mean from the 'centre' of the plot over the dB range of the plot
+    # Asymmetry factor is the centre of gravity (in dBFS) of the peak-normalised late spatial energy
+    asymmetry_factor_linear = magnitude_of_late_mean_linear
 
-    # Currently only uses the asymmetry factor, but the angle difference might be useful (i.e. a low angle difference might be less unpleasant)
-    spatial_score = asymmetry_factor #direct_late_angle_difference * asymmetry_factor
+    # Spatial score is how off-centre the late energy is, where narrow responses contribute to a higher score
+    # The angle difference might be useful (i.e. a low angle difference might be less unpleasant)
+    spatial_score = asymmetry_factor_linear / surface_area_linear
 
     if show_plots:
         fig, axes = plt.subplots(subplot_kw={'projection': 'polar'})
-        axes.set_ylim([min_normalised_dB - 5, 0])
+        # axes.set_ylim([min_normalised_dB - 5, 0])
         # plt.plot([direct_angle_rad, direct_angle_rad], [-40, -30], color="black", alpha=1, label="Direct")
         plt.fill(late_angles_rad, radii_late_dB, color="black", alpha=0.3, label=f"Late ({np.round(start_ms)}-{np.round(end_ms)} ms)")
-        plt.scatter(late_mean_angle, late_mean_magnitude, label="Mean of Late")
+        plt.scatter(angle_of_late_mean_rad, 10 * np.log10(magnitude_of_late_mean_linear), label="Mean of Late")
         axes.set_axisbelow(True)
         # plt.legend(loc='upper right', bbox_to_anchor=(1, 1))
         plt.suptitle(f"Spatial Asymmetry Score = {np.round(spatial_score, 2)}")
