@@ -82,7 +82,7 @@ def getColouration(rir, sample_rate, should_show_plots=False):
     colouration_score = std_dev + peakedness / 10
 
     # Scale to approximately 0-1 (modification)
-    colouration_score = (colouration_score - 1.7) / 0.7
+    colouration_score = (colouration_score - 1.5) / 0.9
 
     if should_show_plots:
         showPlots(rir,
