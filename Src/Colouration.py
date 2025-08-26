@@ -28,13 +28,13 @@ def showPlots(rir, colouration_score, mag_spectrum_log_trunc, mag_spectrum_smoot
 def getColouration(rir, sample_rate, should_show_plots=False):
     rir_num_samples = len(rir)
 
-    # Estimate RT from -15 dB to -35 dB ensuring -35 dB occurs at least 10 dB above noise floor # # # (not currently done)
-    rt = RT.estimateRT(rir, sample_rate, -15, -35)
+    # Estimate RT from -5 dB to -40 dB ensuring -40 dB occurs at least 10 dB above noise floor # # # (not currently done)
+    rt = RT.estimateRT(rir, sample_rate, start_dB=-5, end_dB=-40)
 
     # Window the RIR between the -15 dB and -35 dB times (assert the start should be after the mixing time)
     edc_dB, time_values = Energy.getEDC(rir, sample_rate)
-    minus_15_position_samples = Utils.findIndexOfClosest(edc_dB, -15)
-    minus_35_position_samples = Utils.findIndexOfClosest(edc_dB, -35)
+    minus_15_position_samples = Utils.findIndexOfClosest(edc_dB, 0)
+    minus_35_position_samples = Utils.findIndexOfClosest(edc_dB, -40)
 
     rir_sample_indices = range(rir_num_samples)
     rir_sample_indices_windowed = rir_sample_indices[minus_15_position_samples:minus_35_position_samples]
@@ -45,15 +45,18 @@ def getColouration(rir, sample_rate, should_show_plots=False):
                                 for sample_index in rir_sample_indices_windowed]
 
     # Get magnitude spectrum
-    fft_size = 2 ** 17
+    fft_size = 2 ** 16
     mag_spectrum = np.abs(np.fft.rfft(rir_windowed_compensated, fft_size))
 
-    # Truncate result (Schroeder frequency lower, 4 kHz upper) and convert spectrum to log frequency
+    # Truncate result (Schroeder frequency lower, 2 kHz upper) and convert spectrum to log frequency
     room_volume = 5000 # assumed
     schroeder_frequency = 2000.0 * np.sqrt(rt / room_volume)
-    upper_frequency_limit = 4000
+    upper_frequency_limit = 2000 # modified from 4 kHz
 
     mag_spectrum_log_trunc, mag_spectrum_freqs = Utils.linearToLog(mag_spectrum, sample_rate, schroeder_frequency, upper_frequency_limit)
+
+    # Modification: Convert magnitude to decibels
+    mag_spectrum_log_trunc = 10 * np.log10(mag_spectrum_log_trunc)
 
     # Get smoothed spectrum, mirroring start and ends for one window length to avoid edge effects
     num_octaves = np.log10(mag_spectrum_freqs[-1] / mag_spectrum_freqs[0]) / np.log10(2)
@@ -65,20 +68,26 @@ def getColouration(rir, sample_rate, should_show_plots=False):
     mag_spectrum_smoothed = savgol_filter(mag_spectrum_to_smooth, window_size, 1)
     mag_spectrum_smoothed = mag_spectrum_smoothed[window_size:-window_size]
 
-    # Divide magnitude spectrum by smoothed
-    mag_over_means = mag_spectrum_log_trunc / mag_spectrum_smoothed
+    # Subtract smoothed magnitude from raw
+    mag_minus_mean = mag_spectrum_log_trunc - mag_spectrum_smoothed
 
-    # Output standard deviation of result
-    std_dev = np.std(mag_over_means)
-    peakedness = 10 * np.log10(np.max(mag_over_means) - np.mean(mag_over_means) - std_dev)
+    # Clip below 0 to remove notch effects due to dB scale
+    mag_minus_mean = np.clip(mag_minus_mean, 0, None)
+
+    # Output summation of standard deviation and peakedness
+    std_dev = np.std(mag_minus_mean)
+    peakedness = 10 * np.log10(np.max(mag_minus_mean) - np.mean(mag_minus_mean) - std_dev)
     colouration_score = std_dev + peakedness / 10
+
+    # Scale to approximately 0-1
+    colouration_score = (colouration_score - 1.7) / 0.7
 
     if should_show_plots:
         showPlots(rir,
                   colouration_score,
                   mag_spectrum_log_trunc,
                   mag_spectrum_smoothed,
-                  mag_over_means,
+                  mag_minus_mean,
                   mag_spectrum_freqs)
 
     return colouration_score
