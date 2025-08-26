@@ -28,10 +28,12 @@ def showPlots(rir, colouration_score, mag_spectrum_log_trunc, mag_spectrum_smoot
 def getColouration(rir, sample_rate, should_show_plots=False):
     rir_num_samples = len(rir)
 
-    # Estimate RT from -5 dB to -40 dB ensuring -40 dB occurs at least 10 dB above noise floor # # # (not currently done)
+    # Estimate RT from -5 dB to -40 dB ensuring -40 dB occurs at least 10 dB above noise floor
+    # # # (not currently done) (modification; previously -15 to -35 dB)
     rt = RT.estimateRT(rir, sample_rate, start_dB=-5, end_dB=-40)
 
-    # Window the RIR between the -15 dB and -35 dB times (assert the start should be after the mixing time)
+    # Window the RIR between the 0 dB and -40 dB times (modification; assert the start should be after the mixing time,
+    # previously -15 to -35 dB)
     edc_dB, time_values = Energy.getEDC(rir, sample_rate)
     minus_15_position_samples = Utils.findIndexOfClosest(edc_dB, 0)
     minus_35_position_samples = Utils.findIndexOfClosest(edc_dB, -40)
@@ -55,7 +57,7 @@ def getColouration(rir, sample_rate, should_show_plots=False):
 
     mag_spectrum_log_trunc, mag_spectrum_freqs = Utils.linearToLog(mag_spectrum, sample_rate, schroeder_frequency, upper_frequency_limit)
 
-    # Modification: Convert magnitude to decibels
+    # Convert magnitude to decibels (modification)
     mag_spectrum_log_trunc = 10 * np.log10(mag_spectrum_log_trunc)
 
     # Get smoothed spectrum, mirroring start and ends for one window length to avoid edge effects
@@ -68,18 +70,18 @@ def getColouration(rir, sample_rate, should_show_plots=False):
     mag_spectrum_smoothed = savgol_filter(mag_spectrum_to_smooth, window_size, 1)
     mag_spectrum_smoothed = mag_spectrum_smoothed[window_size:-window_size]
 
-    # Subtract smoothed magnitude from raw
+    # Subtract smoothed magnitude from raw (modification; use divide for standard)
     mag_minus_mean = mag_spectrum_log_trunc - mag_spectrum_smoothed
 
-    # Clip below 0 to remove notch effects due to dB scale
+    # Clip below 0 to remove notch effects due to dB scale (modification)
     mag_minus_mean = np.clip(mag_minus_mean, 0, None)
 
-    # Output summation of standard deviation and peakedness
+    # Output summation of standard deviation and peakedness (modification)
     std_dev = np.std(mag_minus_mean)
     peakedness = 10 * np.log10(np.max(mag_minus_mean) - np.mean(mag_minus_mean) - std_dev)
     colouration_score = std_dev + peakedness / 10
 
-    # Scale to approximately 0-1
+    # Scale to approximately 0-1 (modification)
     colouration_score = (colouration_score - 1.7) / 0.7
 
     if should_show_plots:
