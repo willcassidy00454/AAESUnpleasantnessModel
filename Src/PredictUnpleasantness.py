@@ -11,27 +11,38 @@ from os import listdir
 from os.path import isfile
 
 
-def evaluateColourationFeature():
-    labelled_examples_dir = "/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/Labelled Colouration/"
+# Reads the RIR files in folder "Labelled {feature}", the names of which are ranked from 0-10
+# (e.g. "0.wav", "0_1.wav", "1.wav"), and compares these to the feature outputs for the RIRs.
+# feature = "Colouration" | "Spatial Asymmetry" | "Flutter Echo"
+def evaluateFeature(feature="Colouration"):
+    labelled_examples_dir = f"/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/Labelled {feature}/"
     filenames = [filename for filename in sorted(listdir(labelled_examples_dir)) if isfile(labelled_examples_dir + filename)]
 
-    colouration_labels = [np.floor(float(label.strip(".wav").replace("_", "."))) for label in filenames]
-    colouration_scores = np.zeros_like(filenames)
+    labels = [np.floor(float(label.strip(".wav").replace("_", "."))) for label in filenames]
+    feature_outputs = np.zeros_like(filenames)
 
     for file_index, filename in enumerate(filenames):
         filepath = labelled_examples_dir + filename
         sample_rate, spatial_rir = wavfile.read(filepath)
-        colouration_scores[file_index] = Colouration.getColouration(spatial_rir[:, 0], sample_rate, False)
 
-    colouration_scores = [float(score) for score in colouration_scores]
+        if feature == "Colouration":
+            feature_outputs[file_index] = Colouration.getColouration(spatial_rir[:, 0], sample_rate, False)
+        elif feature == "Spatial Asymmetry":
+            feature_outputs[file_index] = SDM.getSpatialAsymmetryScore(spatial_rir, sample_rate, False)
+        elif feature == "Flutter Echo":
+            feature_outputs[file_index] = FlutterEcho.getFlutterEchoScore(spatial_rir[:, 0], sample_rate, False)
+        else:
+            assert False
 
-    gradient, y_intercept, r_value, p_value, std_err = stats.linregress(colouration_labels, colouration_scores)
+    feature_outputs = [float(output) for output in feature_outputs]
+
+    gradient, y_intercept, r_value, p_value, std_err = stats.linregress(labels, feature_outputs)
     linear_regression = np.poly1d([gradient, y_intercept])
 
-    plt.plot(colouration_labels, colouration_scores, 'o', colouration_labels, linear_regression(colouration_labels))
-    plt.xlabel("Labelled Colouration (0-10)")
-    plt.ylabel("Colouration Feature Score")
-    plt.title(f"Modified Colouration (R-squared = {round(r_value ** 2, 2)})")
+    plt.plot(labels, feature_outputs, 'o', labels, linear_regression(labels))
+    plt.xlabel(f"Labelled {feature} (0-10)")
+    plt.ylabel(f"{feature} Feature Score")
+    plt.title(f"{feature} (R-squared = {round(r_value ** 2, 2)})")
     plt.show()
 
 def predictUnpleasantness(rir_filepath):
@@ -84,4 +95,4 @@ if __name__ == "__main__":
     # filename = "Normal.wav"
     # predictUnpleasantness(f"/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/{filename}")
 
-    evaluateColourationFeature()
+    evaluateFeature("Colouration")
