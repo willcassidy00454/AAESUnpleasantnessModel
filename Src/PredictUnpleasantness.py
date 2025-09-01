@@ -16,7 +16,7 @@ from os.path import isfile
 # feature = "Colouration" | "Spatial Asymmetry" | "Flutter Echo"
 def evaluateFeature(feature="Colouration"):
     labelled_examples_dir = f"/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/Labelled {feature}/"
-    filenames = [filename for filename in sorted(listdir(labelled_examples_dir)) if isfile(labelled_examples_dir + filename)]
+    filenames = [filename for filename in sorted(listdir(labelled_examples_dir)) if isfile(labelled_examples_dir + filename) and filename.endswith("wav")]
 
     labels = [np.floor(float(label.strip(".wav").replace("_", "."))) for label in filenames]
     feature_outputs = np.zeros_like(filenames)
