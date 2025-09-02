@@ -108,13 +108,13 @@ def getOctaveBandsFromIR(rir, sample_rate, octave_band_resolution=1):
         filter_order = 5
 
         band_signals = np.zeros([len(rir), num_bands])
-        for freq_idx, center_freq in enumerate(octave_band_centres):
+        for freq_idx, centre_freq in enumerate(octave_band_centres):
             band_type = ('low' if freq_idx == 0
                          else ('high' if freq_idx == num_bands - 1
                                else 'band'))
 
-            bin_lower = center_freq / centre_to_crossover_factor
-            bin_upper = center_freq * centre_to_crossover_factor
+            bin_lower = centre_freq / centre_to_crossover_factor
+            bin_upper = centre_freq * centre_to_crossover_factor
 
             if band_type == 'low':
                 sos = butter(2 * filter_order, bin_upper, 'lowpass', fs=sample_rate, output='sos')
