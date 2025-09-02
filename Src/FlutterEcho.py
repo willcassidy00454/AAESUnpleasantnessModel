@@ -44,7 +44,7 @@ def getFlutterEchoScore(rir, sample_rate, should_show_plots=False):
     rir_octave_bands, octave_band_centres = Utils.getOctaveBandsFromIR(rir, sample_rate)
     num_octave_bands = rir_octave_bands.shape[1]
 
-    # Get energy spectrum of each octave band, truncate between 1 and 20 Hz,
+    # Get energy spectrum of each octave band, truncate between 2 and 20 Hz,
     # and calculate distance of max in each from mean, minus std dev
     fft_size = 2 ** 9
     etc_window_duration_ms = 10.0
@@ -54,19 +54,16 @@ def getFlutterEchoScore(rir, sample_rate, should_show_plots=False):
 
     etc_sample_rate = 1.0 / (etc_window_duration_ms / 1000.0)
 
-    min_flutter_frequency = 1
+    min_flutter_frequency = 2 # Doesn't seem to be sensitive up to ~10 Hz
     max_flutter_frequency = 20
 
     min_energy_freq_index = int(np.floor(len(energy_spectrum_freqs) * (min_flutter_frequency / (etc_sample_rate / 2))))
     max_energy_freq_index = int(np.floor(len(energy_spectrum_freqs) * (max_flutter_frequency / (etc_sample_rate / 2))))
 
     energy_spectra = np.zeros([max_energy_freq_index - min_energy_freq_index, num_octave_bands])
-    # num_etc_bins = int(float(len(rir)) / ((etc_window_duration_ms / 1000) * float(sample_rate)))
-    # auto_correlations = np.zeros([num_etc_bins, num_octave_bands])
 
     for octave_band in range(num_octave_bands):
         etc_dB, _ = Energy.getEnergyTimeCurve(rir_octave_bands[:, octave_band], sample_rate, etc_window_duration_ms)
-        # energy_deviations = Energy.getEnergyDeviationsFromSlope(rir_octave_bands[:, octave_band], sample_rate, etc_window_duration_ms)
 
         etc_dB[:Utils.findIndexOfClosest(etc_dB, -60)] = -60
 
@@ -75,41 +72,12 @@ def getFlutterEchoScore(rir, sample_rate, should_show_plots=False):
         energy_spectra[:, octave_band] = energy_spectrum_dB
         energy_mean = np.mean(energy_spectrum_dB)
         energy_stddev = np.std(energy_spectrum_dB)
-        energy_max = np.max(energy_spectrum_dB)
-        # band_auto_correlation = np.correlate(energy_deviations, energy_deviations, "full")
-        # auto_correlations[:, octave_band] = band_auto_correlation[len(band_auto_correlation) // 2:]
 
-        # acf_fft_mag_lin = np.abs(np.fft.rfft(auto_correlations[:, octave_band], fft_size))
-        # etc_sample_rate = 1.0 / (etc_window_duration_ms / 1000.0)
-        #
-        # acf_fft_mag_dB = 10 * np.log10(acf_fft_mag_lin)
-        #
-        # # acf_fft_mag_dB_clamped = np.clip(acf_fft_mag_dB, np.max(acf_fft_mag_dB) - 8, None)
-        # frequencies = np.arange(0.0, 1.0, 1.0 / len(acf_fft_mag_dB)) * (etc_sample_rate / 2.0)
-        #
-        # lower_frequency = 2
-        # upper_frequency = 20.0
-        # lower_frequency_index = int(np.floor(len(acf_fft_mag_dB) * (lower_frequency / (etc_sample_rate / 2))))
-        # upper_frequency_index = int(np.floor(len(acf_fft_mag_dB) * (upper_frequency / (etc_sample_rate / 2))))
-        #
-        # acf_fft_mag_dB_trunc = acf_fft_mag_dB[lower_frequency_index:upper_frequency_index]
-        # acf_fft_mag_dB_trunc -= np.max(acf_fft_mag_dB_trunc)
-
-        # acf_fft_mag_energy = np.sum(np.square(acf_fft_mag_dB_trunc))
-        # start_index = int(np.floor(0.05 * etc_sample_rate))
-        # end_index = int(np.floor(0.5 * etc_sample_rate))
-        # octave_band_scores[octave_band] = np.sum(np.abs(auto_correlations[start_index:end_index, octave_band]))#np.mean(acf_fft_mag_dB_trunc)#acf_fft_mag_energy
         octave_band_scores[octave_band] = energy_mean - energy_stddev
-
-        # plt.title(f"Score = {octave_band_scores[octave_band]}")
-        # # plt.plot(frequencies[lower_frequency_index:upper_frequency_index], acf_fft_mag_dB_trunc)
-        # plt.plot(auto_correlations[:, octave_band])
-        # plt.show()
 
     flutter_echo_score = np.max(octave_band_scores)
 
     if should_show_plots:
         showEnergySpectrumPlots(num_octave_bands, energy_spectra, energy_spectrum_freqs[min_energy_freq_index:max_energy_freq_index], octave_band_centres, flutter_echo_score)
-        # showACFPlots(num_octave_bands, auto_correlations, sample_rate, octave_band_centres, flutter_echo_score, etc_window_duration_ms)
 
     return flutter_echo_score
