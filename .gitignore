@@ -2,3 +2,4 @@
 .DS_Store
 Src/__pycache__
 Audio
+*.png
