@@ -40,36 +40,48 @@ def evaluateFeature(feature="Colouration"):
     linear_regression = np.poly1d([gradient, y_intercept])
 
     plt.plot(labels, feature_outputs, 'o', labels, linear_regression(labels))
-    plt.xlabel(f"Labelled {feature} (0-10)")
+    plt.xlabel(f"Labelled {feature} (0-9)")
     plt.ylabel(f"{feature} Feature Score")
     plt.title(f"{feature} (R-squared = {round(r_value ** 2, 2)})")
     plt.show()
 
-def predictUnpleasantness(rir_filepath):
-    # Load audio channels and pre-process
-    sample_rate, spatial_rir = wavfile.read(rir_filepath)
 
-    spatial_rir = np.float32(spatial_rir)
+def predictUnpleasantnessFromRIR(rir_filepath):
+    sample_rate, spatial_rir = wavfile.read(rir_filepath)
+    # spatial_rir = np.float32(spatial_rir) # Can't remember why I included this...
 
     # Compute features
-    # colouration_score = Colouration.getColouration(spatial_rir, sample_rate, True)
+    colouration_score = Colouration.getColouration(spatial_rir[:, 0], sample_rate, False)
+    asymmetry_score = SDM.getSpatialAsymmetryScore(spatial_rir, sample_rate, False)
+    flutter_echo_score = FlutterEcho.getFlutterEchoScore(spatial_rir[:, 0], sample_rate, False)
 
-    spectral_score = SpectralEvolution.getSpectralEvolutionScore(spatial_rir[:, 0], sample_rate, True)
+    return predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score)
 
-    print(spectral_score)
 
-    # flutter_echo_score = FlutterEcho.getFlutterEchoScore(spatial_rir[:, 0], sample_rate, True)
+def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, prog_item):
+    if prog_item == 1:
+        y_intercept = 84.044
+        colouration_gradient = -28.407
+        asymmetry_gradient = 5.708
+        flutter_gradient = -75.138
+    elif prog_item == 2:
+        y_intercept = 106.036
+        colouration_gradient = -73.432
+        asymmetry_gradient = 8.503
+        flutter_gradient = 39.518
+    else:
+        assert False
 
-    # sos = signal.butter(2, 40 / (sample_rate / 2), 'highpass', output='sos')
-    # spatial_rir = signal.sosfilt(sos, spatial_rir)
+    linear_model = (y_intercept
+                    + colouration_gradient * colouration_score
+                    + asymmetry_gradient * asymmetry_score
+                    + flutter_gradient * flutter_echo_score)
 
-    # SDM.plotSpatioTemporalMap(spatial_rir, sample_rate, "median", 50)
-    # asymmetry_score = SDM.getSpatialAsymmetryScore(spatial_rir, sample_rate, True)
+    return linear_model
 
-    # Compute model
-    # model_output = flutter_echo_scores
 
-    # print(model_output)
+def evaluateLinearModelOnMedians():
+    x = 0
 
 
 if __name__ == "__main__":
@@ -86,13 +98,17 @@ if __name__ == "__main__":
     # filename = "DullLate.wav"
 
     # Passive Rooms
-    # filename = "Passive11.wav"
+    filename = "Passive11.wav"
     # filename = "Room3.wav"
     # filename = "PassiveRoom.wav"
     # filename = "Pilsen.wav"
     # filename = "Pilsen2.wav"
     # filename = "Pilsen3.wav"
     # filename = "Normal.wav"
-    # predictUnpleasantness(f"/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/{filename}")
+    predictUnpleasantnessLinear(f"/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/{filename}")
 
-    evaluateFeature("Colouration")
+    # sample_rate, spatial_rir = wavfile.read("/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/Labelled Flutter Echo/8.wav")
+    # print(FlutterEcho.getFlutterEchoScore(spatial_rir[:, 0], sample_rate, True))
+
+    # evaluateFeature("Flutter Echo")
+
