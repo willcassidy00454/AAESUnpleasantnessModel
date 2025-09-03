@@ -120,7 +120,7 @@ def getSpatioTemporalMap(spatial_ir,
     return angles_rad_corrected, radii_dB
 
 
-def plotSpatioTemporalMap(spatial_rir, sample_rate, plane="median", num_plot_angles=200):
+def plotSpatioTemporalMap(spatial_rir, sample_rate, plane="transverse", num_plot_angles=200):
     fig, axes = plt.subplots(3, 2, subplot_kw={'projection': 'polar'})
 
     starts_relative_to_direct_ms = [-1, 10, 100, 200, 400, 800]
@@ -146,12 +146,12 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
     # Get EDC of omni component
     edc_dB, edc_times = Energy.getEDC(spatial_rir[:, 0], sample_rate)
 
-    # Find time region between -30 and -50 dB decay (late energy)
+    # Find time region between -30 and -40 dB decay (late energy)
     minus_30_position_samples = Utils.findIndexOfClosest(edc_dB, -30)
-    minus_50_position_samples = Utils.findIndexOfClosest(edc_dB, -50)
+    minus_40_position_samples = Utils.findIndexOfClosest(edc_dB, -40)
 
     start_ms = edc_times[minus_30_position_samples] * 1000
-    end_ms = edc_times[minus_50_position_samples] * 1000
+    end_ms = edc_times[minus_40_position_samples] * 1000
 
     # Get late energy spatial bins (around the azimuth)
     late_angles_rad, radii_late_dB = getSpatioTemporalMap(spatial_rir,
@@ -176,49 +176,39 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
     radii_late_dB -= max_dB
     radii_direct_dB -= max_dB
 
-    # min_normalised_dB = np.min(radii_late_dB)
+    min_normalised_dB = np.min(radii_late_dB)
 
     direct_index = np.argmax(radii_direct_dB)
     direct_angle_rad = direct_angles_rad[direct_index]
 
-    # General Process:
-    # Determine how much the late energy is weighted towards one direction, and score more highly for lateral directions
-
-    # Convert linear radii and angles into cartesian coords, find geometric mean, convert back to polar
+    # Determine whether the late energy directions are weighted more towards one direction, and score highly if that direction differs from the direct energy
+    # Find mean angle and mean magnitude of late energy
+    # late_points_cartesian = Utils.pol2cart(radii_late_dB, late_angles_rad)
     late_points_cartesian = Utils.pol2cart(10 ** (radii_late_dB / 10), late_angles_rad)
     late_points_cartesian_mean = [np.mean(late_points_cartesian[0]), np.mean(late_points_cartesian[1])]
     magnitude_of_late_mean_linear, angle_of_late_mean_rad = Utils.cart2pol(late_points_cartesian_mean[0], late_points_cartesian_mean[1])
+    # magnitude_of_late_mean = 10 * np.log10(np.clip(magnitude_of_late_mean, 1e-12, None)) # Clamp at -80 dB
 
-    # Since the radii are peak-normalised, taking the mean radius represents the surface area
-    # i.e. a circular response would yield the highest mean (unity), and a very narrow response would be near zero
-    surface_area_dB = np.mean(radii_late_dB)
+    surface_area_linear = np.mean(10 ** (radii_late_dB / 10)) # represents how homogeneous the late spatial response is, since it is peak-normalised
 
-    # Wrap the mean angle of the late energy within 0-2pi
-    # direct_angle_rad_wrapped = direct_angle_rad % (2.0 * np.pi)
-    angle_of_late_mean_rad_wrapped = angle_of_late_mean_rad % (2.0 * np.pi)
-    # absolute_angle_difference_rad = np.abs(direct_angle_rad_wrapped - angle_of_late_mean_rad_wrapped)
-    # direct_late_angle_difference_rad = np.min([absolute_angle_difference_rad, (2.0 * np.pi) - absolute_angle_difference_rad])
+    # Get difference of angle between direct and mean late
+    direct_late_angle_difference = np.abs(direct_angle_rad - angle_of_late_mean_rad)
 
-    # Angle weighting is such that hard L/R is 1 and front/back is 0
-    angle_weighting = abs(np.sin(angle_of_late_mean_rad_wrapped - (np.pi / 2)))
-
-    # Off-centre factor is the magnitude of the centre of gravity (mean) of the peak-normalised late spatial energy
-    # This differs from the mean of the radii as a near-zero mean could be yielded for a narrow but symmetrical response
-    off_centre_factor_dB = 10 * np.log10(magnitude_of_late_mean_linear)
+    # Asymmetry factor is the centre of gravity (in dBFS) of the peak-normalised late spatial energy
+    asymmetry_factor_linear = magnitude_of_late_mean_linear
 
     # Spatial score is how off-centre the late energy is, where narrow responses contribute to a higher score
-    # Late energy that is one-sided and lateral will increase the score
-    spatial_score = (off_centre_factor_dB - surface_area_dB) * (angle_weighting + 1)
+    # The angle difference might be useful (i.e. a low angle difference might be less unpleasant)
+    spatial_score = asymmetry_factor_linear / surface_area_linear
 
     if show_plots:
         fig, axes = plt.subplots(subplot_kw={'projection': 'polar'})
         # axes.set_ylim([min_normalised_dB - 5, 0])
-        plt.plot([direct_angle_rad, direct_angle_rad], [-5, 0], color="blue", alpha=1, label="Direct")
-        plt.plot([angle_of_late_mean_rad, angle_of_late_mean_rad], [-5, 0], color="black", alpha=1, label="Late")
+        # plt.plot([direct_angle_rad, direct_angle_rad], [-40, -30], color="black", alpha=1, label="Direct")
         plt.fill(late_angles_rad, radii_late_dB, color="black", alpha=0.3, label=f"Late ({np.round(start_ms)}-{np.round(end_ms)} ms)")
         plt.scatter(angle_of_late_mean_rad, 10 * np.log10(magnitude_of_late_mean_linear), label="Mean of Late")
         axes.set_axisbelow(True)
-        # plt.legend(loc='best')
+        # plt.legend(loc='upper right', bbox_to_anchor=(1, 1))
         plt.suptitle(f"Spatial Asymmetry Score = {np.round(spatial_score, 2)}")
         plt.show()
 

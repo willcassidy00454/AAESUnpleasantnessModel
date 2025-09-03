@@ -60,15 +60,15 @@ def predictUnpleasantnessFromRIR(rir_filepath):
 
 def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, prog_item):
     if prog_item == 1:
-        y_intercept = 84.044
-        colouration_gradient = -28.407
-        asymmetry_gradient = 5.708
-        flutter_gradient = -75.138
+        y_intercept = 100.037
+        colouration_gradient = -43.811
+        flutter_gradient = 1.225
+        asymmetry_gradient = -16.976
     elif prog_item == 2:
-        y_intercept = 106.036
-        colouration_gradient = -73.432
-        asymmetry_gradient = 8.503
-        flutter_gradient = 39.518
+        y_intercept = 102.412
+        colouration_gradient = -72.754
+        flutter_gradient = 8.161
+        asymmetry_gradient = 14.831
     else:
         assert False
 
@@ -98,17 +98,19 @@ if __name__ == "__main__":
     # filename = "DullLate.wav"
 
     # Passive Rooms
-    filename = "Passive11.wav"
+    # filename = "Passive11.wav"
     # filename = "Room3.wav"
     # filename = "PassiveRoom.wav"
     # filename = "Pilsen.wav"
     # filename = "Pilsen2.wav"
     # filename = "Pilsen3.wav"
     # filename = "Normal.wav"
-    predictUnpleasantnessLinear(f"/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/{filename}")
+    # predictUnpleasantnessFromRIR(f"/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/{filename}")
 
     # sample_rate, spatial_rir = wavfile.read("/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/Labelled Flutter Echo/8.wav")
     # print(FlutterEcho.getFlutterEchoScore(spatial_rir[:, 0], sample_rate, True))
 
-    # evaluateFeature("Flutter Echo")
+    evaluateFeature("Colouration")
+    evaluateFeature("Spatial Asymmetry")
+    evaluateFeature("Flutter Echo")
 
