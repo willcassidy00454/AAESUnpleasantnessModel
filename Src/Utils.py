@@ -1,6 +1,20 @@
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.signal import butter, sosfilt
+from scipy.io import wavfile
+
+
+def convolveWithProgItem(spatial_rir, prog_item_id):
+    if prog_item_id == 1:
+        filepath = "/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/Programme Item Snippets/ClapShort.wav"
+    elif prog_item_id == 2:
+        filepath = "/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/Programme Item Snippets/SaxShort.wav"
+    else:
+        assert False
+
+    prog_item_snippet = wavfile.read(filepath)
+
+    return np.convolve(spatial_rir, prog_item_snippet[1])
 
 
 def findIndexOfClosest(list, target):
