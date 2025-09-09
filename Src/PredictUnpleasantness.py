@@ -15,31 +15,59 @@ from os.path import isfile
 # (e.g. "0.wav", "0_1.wav", "1.wav"), and compares these to the feature outputs for the RIRs.
 # feature = "Colouration" | "Spatial Asymmetry" | "Flutter Echo"
 def evaluateFeature(feature="Colouration"):
-    labelled_examples_dir = f"/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/Labelled {feature}/"
-    filenames = [filename for filename in sorted(listdir(labelled_examples_dir)) if isfile(labelled_examples_dir + filename) and filename.endswith("wav")]
+    labelled_examples_dir = f"/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/{feature}/"
+    stimulus_filenames = [filename for filename in listdir(labelled_examples_dir) if isfile(labelled_examples_dir + filename) and filename.endswith("wav")]
 
-    labels = [np.floor(float(label.strip(".wav").replace("_", "."))) for label in filenames]
-    feature_outputs = np.zeros_like(filenames)
+    results_filepath = f"/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/FeatureListeningTest/{feature}_results.csv"
 
-    for file_index, filename in enumerate(filenames):
+    with open(results_filepath, 'r') as file:
+        results_lines = file.readlines()
+
+    num_stimuli = len(stimulus_filenames)
+    num_subjects = int(np.floor(len(results_lines) / len(stimulus_filenames)))
+    results = np.zeros([num_stimuli, num_subjects]) # audio file index, subject
+
+    stimulus_index = 0
+    subject_index = 0
+
+    for results_line in results_lines:
+        results_line_split = results_line.split(",")
+
+        if results_line_split[0] == " ":
+            continue
+
+        results[int(results_line_split[0].strip(".wav")) - 1][subject_index] = int(results_line_split[1].strip(" \n"))
+
+        stimulus_index += 1
+
+        if stimulus_index == num_stimuli:
+            subject_index += 1
+            stimulus_index = 0
+
+    feature_outputs = np.zeros_like(stimulus_filenames)
+
+    for filename in stimulus_filenames:
         filepath = labelled_examples_dir + filename
+        file_index = int(filename.strip(".wav")) - 1
         sample_rate, spatial_rir = wavfile.read(filepath)
 
         if feature == "Colouration":
             feature_outputs[file_index] = Colouration.getColouration(spatial_rir[:, 0], sample_rate, False)
-        elif feature == "Spatial Asymmetry":
+        elif feature == "Asymmetry":
             feature_outputs[file_index] = SDM.getSpatialAsymmetryScore(spatial_rir, sample_rate, False)
-        elif feature == "Flutter Echo":
+        elif feature == "Flutter":
             feature_outputs[file_index] = FlutterEcho.getFlutterEchoScore(spatial_rir[:, 0], sample_rate, False)
         else:
             assert False
 
     feature_outputs = [float(output) for output in feature_outputs]
 
-    gradient, y_intercept, r_value, p_value, std_err = stats.linregress(labels, feature_outputs)
+    mean_results = np.mean(results, 1)
+
+    gradient, y_intercept, r_value, p_value, std_err = stats.linregress(mean_results, feature_outputs)
     linear_regression = np.poly1d([gradient, y_intercept])
 
-    plt.plot(labels, feature_outputs, 'o', labels, linear_regression(labels))
+    plt.plot(mean_results, feature_outputs, 'o', mean_results, linear_regression(mean_results))
     plt.xlabel(f"Labelled {feature} (0-9)")
     plt.ylabel(f"{feature} Feature Score")
     plt.title(f"{feature} (R-squared = {round(r_value ** 2, 2)})")
@@ -48,7 +76,6 @@ def evaluateFeature(feature="Colouration"):
 
 def predictUnpleasantnessFromRIR(rir_filepath):
     sample_rate, spatial_rir = wavfile.read(rir_filepath)
-    # spatial_rir = np.float32(spatial_rir) # Can't remember why I included this...
 
     # Compute features
     colouration_score = Colouration.getColouration(spatial_rir[:, 0], sample_rate, False)
@@ -107,10 +134,11 @@ if __name__ == "__main__":
     # filename = "Normal.wav"
     # predictUnpleasantnessFromRIR(f"/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/{filename}")
 
-    # sample_rate, spatial_rir = wavfile.read("/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/Labelled Flutter Echo/8.wav")
+    # sample_rate, spatial_rir = wavfile.read("/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/Flutter/1.wav")
+    # spatial_rir = float(spatial_rir)
     # print(FlutterEcho.getFlutterEchoScore(spatial_rir[:, 0], sample_rate, True))
 
     evaluateFeature("Colouration")
-    evaluateFeature("Spatial Asymmetry")
-    evaluateFeature("Flutter Echo")
+    evaluateFeature("Asymmetry")
+    evaluateFeature("Flutter")
 
