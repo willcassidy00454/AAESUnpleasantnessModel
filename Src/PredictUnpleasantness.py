@@ -108,11 +108,16 @@ def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutte
                     + asymmetry_gradient * asymmetry_score
                     + flutter_gradient * flutter_echo_score)
 
+    exponent = 2
+    colouration_gradient = 1
+    flutter_gradient = 1
+    asymmetry_gradient = 1
+
+    minkowski_model = np.power(colouration_gradient * np.power(np.abs(colouration_score), exponent)
+                               + asymmetry_gradient * np.power(np.abs(asymmetry_score), exponent)
+                               + flutter_gradient * np.power(np.abs(flutter_echo_score), exponent), (1.0 / exponent))
+
     return linear_model
-
-
-def evaluateLinearModelOnMedians():
-    x = 0
 
 
 if __name__ == "__main__":
