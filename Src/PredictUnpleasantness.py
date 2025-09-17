@@ -4,6 +4,7 @@ import FlutterEcho
 import numpy as np
 from scipy import stats
 import SDM
+import DSE
 import SpectralEvolution
 from scipy import signal
 import matplotlib.pyplot as plt
@@ -15,10 +16,10 @@ from os.path import isfile
 # (e.g. "0.wav", "0_1.wav", "1.wav"), and compares these to the feature outputs for the RIRs.
 # feature = "Colouration" | "Spatial Asymmetry" | "Flutter Echo"
 def evaluateFeature(feature="Colouration"):
-    labelled_examples_dir = f"/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/{feature}/"
+    labelled_examples_dir = f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/{feature}/"
     stimulus_filenames = [filename for filename in listdir(labelled_examples_dir) if isfile(labelled_examples_dir + filename) and filename.endswith("wav")]
 
-    results_filepath = f"/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/FeatureListeningTest/{feature}_results.csv"
+    results_filepath = f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/{feature}_results.csv"
 
     with open(results_filepath, 'r') as file:
         results_lines = file.readlines()
@@ -89,33 +90,38 @@ def predictUnpleasantnessFromRIR(rir_filepath):
     return predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score)
 
 
-def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, prog_item):
+def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, curvature_score, prog_item):
     if prog_item == 1:
-        y_intercept = 100.037
-        colouration_gradient = -43.811
-        flutter_gradient = 1.225
-        asymmetry_gradient = -16.976
+        y_intercept = 91.247
+        colouration_gradient = -32.436
+        flutter_gradient = -20.085
+        asymmetry_gradient = -38.453
+        curvature_gradient = 16.581
     elif prog_item == 2:
-        y_intercept = 102.412
-        colouration_gradient = -72.754
-        flutter_gradient = 8.161
-        asymmetry_gradient = 14.831
+        y_intercept = 93.726
+        colouration_gradient = -34.345
+        flutter_gradient = 49.629
+        asymmetry_gradient = -6.252
+        curvature_gradient = 18.253
     else:
         assert False
 
     linear_model = (y_intercept
                     + colouration_gradient * colouration_score
                     + asymmetry_gradient * asymmetry_score
-                    + flutter_gradient * flutter_echo_score)
+                    + flutter_gradient * flutter_echo_score
+                    + curvature_gradient * curvature_score)
 
     exponent = 2
     colouration_gradient = 1
     flutter_gradient = 1
     asymmetry_gradient = 1
+    curvature_gradient = 1
 
     minkowski_model = np.power(colouration_gradient * np.power(np.abs(colouration_score), exponent)
                                + asymmetry_gradient * np.power(np.abs(asymmetry_score), exponent)
-                               + flutter_gradient * np.power(np.abs(flutter_echo_score), exponent), (1.0 / exponent))
+                               + flutter_gradient * np.power(np.abs(flutter_echo_score), exponent)
+                               + curvature_gradient * np.power(np.abs(curvature_score), exponent), (1.0 / exponent))
 
     return linear_model
 
@@ -141,13 +147,12 @@ if __name__ == "__main__":
     # filename = "Pilsen2.wav"
     # filename = "Pilsen3.wav"
     # filename = "Normal.wav"
-    # predictUnpleasantnessFromRIR(f"/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/{filename}")
+    # filename = "DSE.wav"
+    # predictUnpleasantnessFromRIR(f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/{filename}")
+    # sample_rate, spatial_rir = wavfile.read(f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/{filename}")
+    # rir = np.float32(spatial_rir[:, 0])
+    # print(DSE.getCurvature(rir, sample_rate, True))
 
-    # sample_rate, spatial_rir = wavfile.read("/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/Flutter/1.wav")
-    # spatial_rir = float(spatial_rir)
-    # print(FlutterEcho.getFlutterEchoScore(spatial_rir[:, 0], sample_rate, True))
-
-    evaluateFeature("Colouration")
-    evaluateFeature("Asymmetry")
+    # evaluateFeature("Colouration")
+    # evaluateFeature("Asymmetry")
     evaluateFeature("Flutter")
-
