@@ -12,22 +12,18 @@ def getDOAPerSample(spatial_ir, window_length_samples=5):
     # Get each axis as the product of the omni channel and each respective bidirectional channel, smoothed with hanning
     assert (window_length_samples >= 5)
     window = np.hanning(window_length_samples) # Note: this is slightly different to the MATLAB Hanning window
-    coords_cartesian = np.zeros([spatial_ir.shape[0] + window_length_samples - 1, 3])
+    coords_cartesian = np.zeros([spatial_ir.shape[0], 3])
 
     for axis in range(3):
         spherical_harmonic_index = axis + 1
-        coords_cartesian[:, axis] = np.convolve(window, spatial_ir[:, 0] * spatial_ir[:, spherical_harmonic_index], "full")
+        coords_cartesian[:, axis] = np.convolve(window, spatial_ir[:, 0] * spatial_ir[:, spherical_harmonic_index], "same")
 
     # Normalise each direction to a radius of 1
     euclidean_distances = np.tile(np.sqrt(np.square(coords_cartesian[:, 0])
                                           + np.square(coords_cartesian[:, 1])
                                           + np.square(coords_cartesian[:, 2])), (3, 1)).transpose()
+
     doa_per_sample_cartesian = coords_cartesian / euclidean_distances
-
-    half_window_length_samples = int(np.floor(window_length_samples / 2))
-
-    # Truncate
-    doa_per_sample_cartesian = doa_per_sample_cartesian[half_window_length_samples:-half_window_length_samples, :]
 
     return doa_per_sample_cartesian
 
