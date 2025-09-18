@@ -94,19 +94,19 @@ def predictUnpleasantnessFromRIR(rir_filepath):
 
 def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, curvature_score, spectral_score, prog_item):
     if prog_item == 1:
-        y_intercept = 77.398
-        colouration_gradient = -27.294
-        flutter_gradient = -12.862
-        asymmetry_gradient = -24.189
-        curvature_gradient = 19.511
-        spectral_gradient = -1.719
+        y_intercept = 65.638
+        colouration_gradient = -27.597
+        flutter_gradient = -10.452
+        asymmetry_gradient = -16.301
+        curvature_gradient = 20.225
+        spectral_gradient = -1.815
     elif prog_item == 2:
-        y_intercept = 100.437
-        colouration_gradient = -36.824
-        flutter_gradient = 46.147
-        asymmetry_gradient = -13.262
-        curvature_gradient = 16.836
-        spectral_gradient = 0.833
+        y_intercept = 96.790
+        colouration_gradient = -37.822
+        flutter_gradient = 45.154
+        asymmetry_gradient = -3.864
+        curvature_gradient = 17.943
+        spectral_gradient = 0.730
     else:
         assert False
 
@@ -146,6 +146,9 @@ if __name__ == "__main__":
     # filename = "BrightLateColoured.wav"
     # filename = "DullLate.wav"
 
+    # Spatial RIRs
+    filename = "Asymmetry/5.wav"
+
     # Passive Rooms
     # filename = "Passive11.wav"
     # filename = "Room3.wav"
@@ -157,7 +160,8 @@ if __name__ == "__main__":
     # filename = "DSE.wav"
     # predictUnpleasantnessFromRIR(f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/{filename}")
     # sample_rate, spatial_rir = wavfile.read(f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/{filename}")
-    # SpectralEvolution.getSpectralEvolutionScore(spatial_rir[:, 0], sample_rate, True)
+    # SDM.getSpatialAsymmetryScore(spatial_rir, sample_rate, True)
+    # SDM.plotSpatioTemporalMap(spatial_rir, sample_rate)
     # rir = np.float32(spatial_rir[:, 0])
     # print(DSE.getCurvature(rir, sample_rate, True))
 
