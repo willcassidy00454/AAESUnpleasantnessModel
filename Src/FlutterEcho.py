@@ -30,14 +30,6 @@ def showACFPlots(num_octave_bands, auto_correlations, sample_rate, octave_band_c
 
     plt.show()
 
-def getFrequencyIndexRange(frequency_indices, min_frequency, max_frequency, etc_window_duration_ms):
-    etc_sample_rate = 1.0 / (etc_window_duration_ms / 1000.0)
-
-    min_energy_freq_index = int(np.floor(len(frequency_indices) * (min_frequency / (etc_sample_rate / 2))))
-    max_energy_freq_index = int(np.floor(len(frequency_indices) * (max_frequency / (etc_sample_rate / 2))))
-    energy_frequency_index_range = range(min_energy_freq_index, max_energy_freq_index)
-
-    return energy_frequency_index_range
 
 def getFlutterEchoScore(rir, sample_rate, should_show_plots=False):
     # High-pass RIR from 1 kHz
@@ -59,10 +51,10 @@ def getFlutterEchoScore(rir, sample_rate, should_show_plots=False):
 
     # Truncate energy spectrum between 0-20 Hz
     energy_spectrum_freqs = np.fft.rfftfreq(fft_size, etc_window_duration_ms / 1000.0)
-    energy_frequency_index_range = getFrequencyIndexRange(energy_spectrum_freqs,
-                                                          0.0,
-                                                          20.0,
-                                                          etc_window_duration_ms)
+    energy_frequency_index_range = Utils.getFrequencyIndexRange(energy_spectrum_freqs,
+                                             0.0,
+                                            20.0,
+                                                         sample_rate=1.0 / (etc_window_duration_ms / 1000.0))
     energy_spectrum_dB = energy_spectrum_dB[energy_frequency_index_range]
 
     # Find max magnitude of energy oscillations between 0-20 Hz minus the mean and standard deviation

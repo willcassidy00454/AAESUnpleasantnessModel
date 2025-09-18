@@ -165,3 +165,11 @@ def pol2cart(rho, phi):
     x = rho * np.cos(phi)
     y = rho * np.sin(phi)
     return(x, y)
+
+
+def getFrequencyIndexRange(frequency_indices, min_frequency, max_frequency, sample_rate):
+    min_freq_index = int(np.floor(len(frequency_indices) * (min_frequency / (sample_rate / 2))))
+    max_freq_index = int(np.floor(len(frequency_indices) * (max_frequency / (sample_rate / 2))))
+    frequency_index_range = range(min_freq_index, max_freq_index)
+
+    return frequency_index_range
