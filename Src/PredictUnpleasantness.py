@@ -58,6 +58,8 @@ def evaluateFeature(feature="Colouration"):
             feature_outputs[file_index] = SDM.getSpatialAsymmetryScore(spatial_rir, sample_rate, False)
         elif feature == "Flutter":
             feature_outputs[file_index] = FlutterEcho.getFlutterEchoScore(spatial_rir[:, 0], sample_rate, False)
+        elif feature == "Spectral":
+            feature_outputs[file_index] = SpectralEvolution.getSpectralEvolutionScore(spatial_rir[:, 0], sample_rate, False)
         else:
             assert False
 
@@ -90,19 +92,21 @@ def predictUnpleasantnessFromRIR(rir_filepath):
     return predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score)
 
 
-def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, curvature_score, prog_item):
+def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, curvature_score, spectral_score, prog_item):
     if prog_item == 1:
-        y_intercept = 91.247
-        colouration_gradient = -32.436
-        flutter_gradient = -20.085
-        asymmetry_gradient = -38.453
-        curvature_gradient = 16.581
+        y_intercept = 77.398
+        colouration_gradient = -27.294
+        flutter_gradient = -12.862
+        asymmetry_gradient = -24.189
+        curvature_gradient = 19.511
+        spectral_gradient = -1.719
     elif prog_item == 2:
-        y_intercept = 93.726
-        colouration_gradient = -34.345
-        flutter_gradient = 49.629
-        asymmetry_gradient = -6.252
-        curvature_gradient = 18.253
+        y_intercept = 100.437
+        colouration_gradient = -36.824
+        flutter_gradient = 46.147
+        asymmetry_gradient = -13.262
+        curvature_gradient = 16.836
+        spectral_gradient = 0.833
     else:
         assert False
 
@@ -110,18 +114,21 @@ def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutte
                     + colouration_gradient * colouration_score
                     + asymmetry_gradient * asymmetry_score
                     + flutter_gradient * flutter_echo_score
-                    + curvature_gradient * curvature_score)
+                    + curvature_gradient * curvature_score
+                    + spectral_gradient * spectral_score)
 
     exponent = 2
     colouration_gradient = 1
     flutter_gradient = 1
     asymmetry_gradient = 1
     curvature_gradient = 1
+    spectral_gradient = 1
 
     minkowski_model = np.power(colouration_gradient * np.power(np.abs(colouration_score), exponent)
                                + asymmetry_gradient * np.power(np.abs(asymmetry_score), exponent)
                                + flutter_gradient * np.power(np.abs(flutter_echo_score), exponent)
-                               + curvature_gradient * np.power(np.abs(curvature_score), exponent), (1.0 / exponent))
+                               + curvature_gradient * np.power(np.abs(curvature_score), exponent)
+                               + spectral_gradient * np.power(np.abs(spectral_score), exponent), (1.0 / exponent))
 
     return linear_model
 
@@ -150,9 +157,11 @@ if __name__ == "__main__":
     # filename = "DSE.wav"
     # predictUnpleasantnessFromRIR(f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/{filename}")
     # sample_rate, spatial_rir = wavfile.read(f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/{filename}")
+    # SpectralEvolution.getSpectralEvolutionScore(spatial_rir[:, 0], sample_rate, True)
     # rir = np.float32(spatial_rir[:, 0])
     # print(DSE.getCurvature(rir, sample_rate, True))
 
     # evaluateFeature("Colouration")
-    # evaluateFeature("Asymmetry")
-    evaluateFeature("Flutter")
+    evaluateFeature("Asymmetry")
+    # evaluateFeature("Flutter")
+    # evaluateFeature("Spectral")
