@@ -10,7 +10,7 @@
 		}
 ,
 		"classnamespace" : "box",
-		"rect" : [ 127.0, -972.0, 1416.0, 813.0 ],
+		"rect" : [ 196.0, -990.0, 1385.0, 874.0 ],
 		"bglocked" : 0,
 		"openinpresentation" : 0,
 		"default_fontsize" : 12.0,
@@ -39,6 +39,23 @@
 		"subpatcher_template" : "",
 		"assistshowspatchername" : 0,
 		"boxes" : [ 			{
+				"box" : 				{
+					"fontsize" : 24.0,
+					"id" : "obj-25",
+					"linecount" : 10,
+					"maxclass" : "comment",
+					"numinlets" : 1,
+					"numoutlets" : 0,
+					"patching_rect" : [ 154.0, 451.0, 173.0, 275.0 ],
+					"presentation" : 1,
+					"presentation_linecount" : 3,
+					"presentation_rect" : [ 852.0, 748.0, 500.0, 87.0 ],
+					"text" : "Spectral Evolution:\nHow much the late, high-frequency energy deviates from your expectation (concert hall)",
+					"textjustification" : 1
+				}
+
+			}
+, 			{
 				"box" : 				{
 					"id" : "obj-26",
 					"maxclass" : "message",
@@ -546,8 +563,8 @@
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 666.0, -113.0, 350.0, 22.0 ],
-					"text" : "\"Colouration (1/3)\" \"Spatial Asymmetry (2/3)\" \"Flutter Echo (3/3)\""
+					"patching_rect" : [ 666.0, -113.0, 487.0, 22.0 ],
+					"text" : "\"Spectral Evolution (1/4)\" \"Colouration (2/4)\" \"Spatial Asymmetry (3/4)\" \"Flutter Echo (4/4)\""
 				}
 
 			}
@@ -598,7 +615,7 @@
 					"patching_rect" : [ 141.0, 67.5, 657.0, 40.0 ],
 					"presentation" : 1,
 					"presentation_rect" : [ 363.0, 174.0, 657.0, 40.0 ],
-					"text" : "Colouration (1/3)",
+					"text" : "Spectral Evolution (1/4)",
 					"textcolor" : [ 0.0, 0.0, 0.0, 1.0 ],
 					"textjustification" : 1
 				}
@@ -636,7 +653,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 821.0, 362.0, 143.0, 22.0 ],
-					"text" : "if $i1 == 3 then set Finish"
+					"text" : "if $i1 == 4 then set Finish"
 				}
 
 			}
@@ -683,8 +700,8 @@
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 837.0, 43.0, 180.0, 22.0 ],
-					"text" : "Colouration/ Asymmetry/ Flutter/"
+					"patching_rect" : [ 837.0, 43.0, 231.0, 22.0 ],
+					"text" : "Spectral/ Colouration/ Asymmetry/ Flutter/"
 				}
 
 			}
@@ -696,7 +713,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 1139.0, 149.0, 126.0, 22.0 ],
-					"text" : "Colouration/"
+					"text" : "Spectral/"
 				}
 
 			}
@@ -831,7 +848,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 1086.0, 362.0, 282.0, 49.0 ],
-					"text" : "read /Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/Colouration/5.wav"
+					"text" : "read /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/Spectral/4.wav"
 				}
 
 			}
@@ -842,8 +859,8 @@
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 1139.0, 230.0, 441.0, 22.0 ],
-					"text" : "prepend /Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/Audio/"
+					"patching_rect" : [ 1139.0, 230.0, 457.0, 22.0 ],
+					"text" : "prepend /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/"
 				}
 
 			}
@@ -867,7 +884,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 1318.0, 36.0, 50.0, 22.0 ],
-					"text" : "4 0 0"
+					"text" : "3 0 0"
 				}
 
 			}
@@ -910,13 +927,13 @@
 , 			{
 				"box" : 				{
 					"id" : "obj-76",
-					"linecount" : 3,
+					"linecount" : 4,
 					"maxclass" : "message",
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 654.0, 584.0, 603.0, 49.0 ],
-					"text" : "/Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/FeatureListeningTest/colouration_results.csv /Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/FeatureListeningTest/asymmetry_results.csv /Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/FeatureListeningTest/flutter_results.csv"
+					"patching_rect" : [ 654.0, 584.0, 618.0, 62.0 ],
+					"text" : "/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/spectral_results.csv /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/colouration_results.csv /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/asymmetry_results.csv /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/flutter_results.csv"
 				}
 
 			}
@@ -1014,7 +1031,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 1081.0, 1063.0, 32.5, 49.0 ],
-					"text" : "15.wav\\,65"
+					"text" : "15.wav\\,56"
 				}
 
 			}
@@ -1133,13 +1150,13 @@
 , 			{
 				"box" : 				{
 					"id" : "obj-51",
-					"linecount" : 23,
+					"linecount" : 24,
 					"maxclass" : "message",
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 647.0, 783.0, 37.0, 317.0 ],
-					"text" : "write /Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/FeatureListeningTest/flutter_results.csv"
+					"patching_rect" : [ 647.0, 783.0, 37.0, 330.0 ],
+					"text" : "write /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/colouration_results.csv"
 				}
 
 			}
@@ -1158,13 +1175,13 @@
 , 			{
 				"box" : 				{
 					"id" : "obj-52",
-					"linecount" : 15,
+					"linecount" : 16,
 					"maxclass" : "message",
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 766.0, 797.0, 52.0, 210.0 ],
-					"text" : "read /Users/willcassidy/Development/GitHub/AAUnpleasantnessModel/FeatureListeningTest/flutter_results.csv"
+					"patching_rect" : [ 766.0, 797.0, 52.0, 223.0 ],
+					"text" : "read /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/colouration_results.csv"
 				}
 
 			}
