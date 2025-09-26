@@ -20,15 +20,10 @@ def showPlots(edc_dB,
     plt.plot([late_start_time, late_end_time], [late_start_dB, late_end_dB], 'ro--')
     plt.show()
 
-def getCurvature(rir, sample_rate, centre_freq=False, show_plots=False):
-    if centre_freq:
-        centre_freq = 1000.0
-
-        centre_to_crossover_factor = 2.0 ** 0.5
-        bin_lower = centre_freq / centre_to_crossover_factor
-        bin_upper = centre_freq * centre_to_crossover_factor
-        sos = butter(4, [bin_lower, bin_upper], 'bandpass', fs=sample_rate, output='sos')
-
+def getCurvature(rir, sample_rate, should_high_pass=True, show_plots=False):
+    if should_high_pass:
+        hpf_cutoff_Hz = 500.0
+        sos = butter(4, hpf_cutoff_Hz, 'highpass', fs=sample_rate, output='sos')
         rir = sosfilt(sos, rir)
 
     edc_dB, edc_times = Energy.getEDC(rir, sample_rate)
