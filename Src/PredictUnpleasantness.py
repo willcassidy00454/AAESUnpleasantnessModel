@@ -71,13 +71,14 @@ def evaluateFeature(feature="Colouration"):
 
     gradient, y_intercept, r_value, p_value, std_err = stats.linregress(mean_results, feature_outputs)
     # gradient, y_intercept, r_value, p_value, std_err = stats.linregress(all_results, repeated_feature_outputs)
+    spearman_correlation, spearman_sig = stats.spearmanr(mean_results, feature_outputs)
     linear_regression = np.poly1d([gradient, y_intercept])
 
     plt.plot(mean_results, feature_outputs, 'o', mean_results, linear_regression(mean_results))
     # plt.plot(all_results, repeated_feature_outputs, 'o', all_results, linear_regression(all_results))
     plt.xlabel(f"Ranked {feature}")
     plt.ylabel(f"{feature} Feature Score")
-    plt.title(f"{feature} (R-squared = {round(r_value ** 2, 2)})")
+    plt.title(f"{feature} (R-squared = {round(r_value ** 2, 2)}, Spear. Corr. = {round(spearman_correlation, 2)})")
     plt.show()
 
 
