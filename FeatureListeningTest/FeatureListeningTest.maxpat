@@ -10,7 +10,7 @@
 		}
 ,
 		"classnamespace" : "box",
-		"rect" : [ 196.0, -990.0, 1385.0, 874.0 ],
+		"rect" : [ 177.0, -993.0, 1385.0, 874.0 ],
 		"bglocked" : 0,
 		"openinpresentation" : 0,
 		"default_fontsize" : 12.0,
@@ -46,7 +46,7 @@
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 154.0, 451.0, 173.0, 275.0 ],
+					"patching_rect" : [ 154.0, 451.0, 174.0, 275.0 ],
 					"presentation" : 1,
 					"presentation_linecount" : 3,
 					"presentation_rect" : [ 852.0, 748.0, 500.0, 87.0 ],
@@ -848,7 +848,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 1086.0, 362.0, 282.0, 49.0 ],
-					"text" : "read /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/Spectral/4.wav"
+					"text" : "read /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/Spectral/13.wav"
 				}
 
 			}
@@ -884,7 +884,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 1318.0, 36.0, 50.0, 22.0 ],
-					"text" : "3 0 0"
+					"text" : "12 0 0"
 				}
 
 			}
@@ -1031,7 +1031,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 1081.0, 1063.0, 32.5, 49.0 ],
-					"text" : "15.wav\\,56"
+					"text" : "15.wav\\,85"
 				}
 
 			}
@@ -1150,13 +1150,13 @@
 , 			{
 				"box" : 				{
 					"id" : "obj-51",
-					"linecount" : 24,
+					"linecount" : 23,
 					"maxclass" : "message",
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 647.0, 783.0, 37.0, 330.0 ],
-					"text" : "write /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/colouration_results.csv"
+					"patching_rect" : [ 647.0, 783.0, 37.0, 317.0 ],
+					"text" : "write /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/flutter_results.csv"
 				}
 
 			}
@@ -1181,7 +1181,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 766.0, 797.0, 52.0, 223.0 ],
-					"text" : "read /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/colouration_results.csv"
+					"text" : "read /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/flutter_results.csv"
 				}
 
 			}
@@ -1265,7 +1265,7 @@
 					"presentation" : 1,
 					"presentation_linecount" : 3,
 					"presentation_rect" : [ 391.0, 140.0, 601.0, 107.0 ],
-					"text" : "Rank the strength of\n\nof the reverberation",
+					"text" : "Rate the strength of\n\nof the reverberation",
 					"textjustification" : 1
 				}
 
