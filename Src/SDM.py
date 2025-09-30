@@ -144,7 +144,7 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
 
     # Find time region between -30 and -40 dB decay (late energy)
     late_start_samples = Utils.findIndexOfClosest(edc_dB, -30)
-    late_end_samples = Utils.findIndexOfClosest(edc_dB, -60)
+    late_end_samples = Utils.findIndexOfClosest(edc_dB, -40)
 
     late_start_ms = edc_times[late_start_samples] * 1000
     late_end_ms = edc_times[late_end_samples] * 1000
@@ -186,6 +186,7 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
     # Since the radii are peak-normalised, taking the mean radius represents the surface area
     # i.e. a circular response would yield the highest mean (unity), and a very narrow response would be near zero
     late_surface_area_linear = np.mean(10 ** (radii_late_dB / 10))
+    narrowness = 1.0 - late_surface_area_linear
 
     # Wrap the mean angle of the late energy within 0-2pi
     # direct_angle_rad_wrapped = direct_angle_rad % (2.0 * np.pi)
@@ -194,15 +195,16 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
     # direct_late_angle_difference_rad = np.min([absolute_angle_difference_rad, (2.0 * np.pi) - absolute_angle_difference_rad])
 
     # Angle weighting is such that hard L/R is 1 and front/back is 0
-    angle_weighting = abs(np.sin(angle_of_late_mean_rad_wrapped - (np.pi / 2)))
+    angle_weighting = np.abs(np.sin(angle_of_late_mean_rad_wrapped - (np.pi / 2))) # for max at 90 deg
+    # angle_weighting = (1.0 - np.cos(angle_of_late_mean_rad_wrapped)) * 0.5 # for max at 180 deg
 
     # Off-centre factor is the magnitude of the centre of gravity (mean) of the peak-normalised late spatial energy
     # This differs from the mean of the radii as a near-zero mean could be yielded for a narrow but symmetrical response
-    off_centre_factor_dB = np.log10(magnitude_of_late_mean_linear)
+    off_centre_ratio_dB = 10 * np.log10(magnitude_of_late_mean_linear)
 
     # Spatial score is how off-centre the late energy is, where narrow responses contribute to a higher score
     # Late energy that is one-sided and lateral will increase the score
-    spatial_score = magnitude_of_late_mean_linear - late_surface_area_linear
+    spatial_score = off_centre_ratio_dB + 20 * narrowness #magnitude_of_late_mean_linear - late_surface_area_linear
 
     if show_plots:
         fig, axes = plt.subplots(subplot_kw={'projection': 'polar'})
@@ -210,7 +212,7 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
         plt.plot([direct_angle_rad, direct_angle_rad], [-5, 0], color="blue", alpha=1, label="Direct")
         plt.plot([angle_of_late_mean_rad, angle_of_late_mean_rad], [-5, 0], color="black", alpha=1, label="Late")
         plt.fill(late_angles_rad, radii_late_dB, color="black", alpha=0.3, label=f"Late ({np.round(late_start_ms)}-{np.round(late_end_ms)} ms)")
-        plt.scatter(angle_of_late_mean_rad, off_centre_factor_dB, label="Mean of Late")
+        plt.scatter(angle_of_late_mean_rad, off_centre_ratio_dB, label="Mean of Late")
         axes.set_axisbelow(True)
         # plt.legend(loc='best')
         plt.suptitle(f"Spatial Asymmetry Score = {np.round(spatial_score, 2)}")
