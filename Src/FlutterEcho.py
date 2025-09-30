@@ -42,6 +42,8 @@ def getFlutterEchoScore(rir, sample_rate, should_show_plots=False):
     etc_window_duration_ms = 2.0
     etc_dB, _ = Energy.getEnergyTimeCurve(rir_high_passed, sample_rate, etc_window_duration_ms)
 
+    # # # # Try to find the noise floor and analyse up to that point plus a margin (then maybe use this for the other features too)
+
     # Truncate after -60 dB
     etc_dB_trunc = etc_dB[:Utils.findIndexOfClosest(etc_dB, -60.0)]
 

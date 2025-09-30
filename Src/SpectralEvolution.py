@@ -53,9 +53,8 @@ def getSpectralEvolutionScore(rir, sample_rate, should_show_plots=False):
     early_mag_spectrum_log_smoothed = savgol_filter(early_mag_spectrum_log, window_length=smoothing_window_length_samples, polyorder=1)
     late_mag_spectrum_log_smoothed = savgol_filter(late_mag_spectrum_log, window_length=smoothing_window_length_samples, polyorder=1)
 
-    # Normalise both spectra so they overlap (compensate for the overall decay in level, maybe use the RT and the time that has passed?)
-    early_max = np.max(early_mag_spectrum_log_smoothed)
-    early_mag_spectrum_log_smoothed -= early_max
+    # Normalise both spectra so they overlap (compensate for the overall decay in level, maybe use the RT and the time that has passed?)    early_max =
+    early_mag_spectrum_log_smoothed -= np.max(early_mag_spectrum_log_smoothed)
     late_mag_spectrum_log_smoothed -= np.max(late_mag_spectrum_log_smoothed)
 
     # Compare energy of early and late magnitudes

@@ -16,8 +16,8 @@ from os.path import isfile
 # (e.g. "0.wav", "0_1.wav", "1.wav"), and compares these to the feature outputs for the RIRs.
 # feature = "Colouration" | "Spatial Asymmetry" | "Flutter Echo"
 def evaluateFeature(feature="Colouration"):
-    labelled_examples_dir = f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/{feature}/"
-    stimulus_filenames = [filename for filename in listdir(labelled_examples_dir) if isfile(labelled_examples_dir + filename) and filename.endswith("wav")]
+    feature_rirs_dir = f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/{feature}/"
+    stimulus_filenames = [filename for filename in listdir(feature_rirs_dir) if isfile(feature_rirs_dir + filename) and filename.endswith("wav")]
 
     results_filepath = f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/{feature}_results.csv"
 
@@ -48,7 +48,7 @@ def evaluateFeature(feature="Colouration"):
     feature_outputs = np.zeros_like(stimulus_filenames)
 
     for filename in stimulus_filenames:
-        filepath = labelled_examples_dir + filename
+        filepath = feature_rirs_dir + filename
         file_index = int(filename.strip(".wav")) - 1
         sample_rate, spatial_rir = wavfile.read(filepath)
 
@@ -74,11 +74,20 @@ def evaluateFeature(feature="Colouration"):
     spearman_correlation, spearman_sig = stats.spearmanr(mean_results, feature_outputs)
     linear_regression = np.poly1d([gradient, y_intercept])
 
+    plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "CMU Serif",
+        "font.size": 15
+    })
     plt.plot(mean_results, feature_outputs, 'o', mean_results, linear_regression(mean_results))
     # plt.plot(all_results, repeated_feature_outputs, 'o', all_results, linear_regression(all_results))
     plt.xlabel(f"Ranked {feature}")
     plt.ylabel(f"{feature} Feature Score")
     plt.title(f"{feature} (R-squared = {round(r_value ** 2, 2)}, Spear. Corr. = {round(spearman_correlation, 2)})")
+
+    # for i in range(15):
+    #     plt.annotate(str(i + 1), (mean_results[i], feature_outputs[i]))
+
     plt.show()
 
 
@@ -95,19 +104,19 @@ def predictUnpleasantnessFromRIR(rir_filepath):
 
 def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, curvature_score, spectral_score, prog_item):
     if prog_item == 1:
-        y_intercept = 65.146
-        colouration_gradient = -25.893
-        flutter_gradient = -7.202
-        asymmetry_gradient = -17.707
-        curvature_gradient = 19.820
-        spectral_gradient = -1.845
+        y_intercept = 65.392
+        colouration_gradient = -17.960
+        flutter_gradient = -26.395
+        asymmetry_gradient = -0.489
+        curvature_gradient = 35.477
+        spectral_gradient = -1.605
     elif prog_item == 2:
-        y_intercept = 86.502
-        colouration_gradient = -40.385
-        flutter_gradient = 50.919
-        asymmetry_gradient = -4.105
-        curvature_gradient = 18.627
-        spectral_gradient = 0.588
+        y_intercept = 83.868
+        colouration_gradient = -35.266
+        flutter_gradient = 38.719
+        asymmetry_gradient = -0.101
+        curvature_gradient = 24.438
+        spectral_gradient = 0.494
     else:
         assert False
 
