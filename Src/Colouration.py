@@ -54,7 +54,7 @@ def getColouration(rir, sample_rate, should_show_plots=False):
     room_volume = 5000 # assumed
     schroeder_frequency = 2000.0 * np.sqrt(rt / room_volume)
     lower_frequency_limit = schroeder_frequency
-    upper_frequency_limit = 4000 # modified from 4 kHz
+    upper_frequency_limit = 8000 # modified from 4 kHz
 
     mag_spectrum_log_trunc_linear, mag_spectrum_freqs = Utils.linearToLog(mag_spectrum, sample_rate, lower_frequency_limit, upper_frequency_limit)
 
