@@ -191,16 +191,13 @@ def applyEqualLoudnessContour(mag_spectrum_dB, mag_spectrum_freqs):
         1.7, 1.3, 4.2, 6.0, 5.4, 1.5, 6.0, 12.6, 13.9, 12.3
     ])
 
-    max_dB = 78.5
-    equal_loudness_magnitudes_linear = equal_loudness_magnitudes_dB / max_dB
-
     # Interpolate equal-loudness curve
-    equal_loudness_curve = interp1d(equal_loudness_freqs, equal_loudness_magnitudes_linear, kind="linear", bounds_error=False, fill_value="extrapolate")
+    equal_loudness_curve = interp1d(equal_loudness_freqs, equal_loudness_magnitudes_dB, kind="linear", bounds_error=False, fill_value="extrapolate")
 
     # Get correction for given frequencies
     correction_curve = equal_loudness_curve(mag_spectrum_freqs)
 
     # Apply correction
-    corrected_magnitudes_dB = mag_spectrum_dB / correction_curve
+    corrected_magnitudes_dB = mag_spectrum_dB - correction_curve
 
     return corrected_magnitudes_dB
