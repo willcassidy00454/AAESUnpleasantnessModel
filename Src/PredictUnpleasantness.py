@@ -104,19 +104,19 @@ def predictUnpleasantnessFromRIR(rir_filepath):
 
 def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, curvature_score, spectral_score, prog_item):
     if prog_item == 1:
-        y_intercept = 72.429
-        colouration_gradient = -20.557
-        flutter_gradient = -33.215
-        asymmetry_gradient = -0.301
-        curvature_gradient = 31.693
-        spectral_gradient = -1.365
+        y_intercept = 83.048
+        colouration_gradient = -24.943
+        flutter_gradient = -32.849
+        asymmetry_gradient = -0.555
+        curvature_gradient = 30.880
+        spectral_gradient = -1.108
     elif prog_item == 2:
-        y_intercept = 96.141
-        colouration_gradient = -38.670
-        flutter_gradient = 26.586
-        asymmetry_gradient = 0.239
-        curvature_gradient = 19.915
-        spectral_gradient = 0.928
+        y_intercept = 87.900
+        colouration_gradient = -35.388
+        flutter_gradient = 26.689
+        asymmetry_gradient = 0.396
+        curvature_gradient = 21.223
+        spectral_gradient = 0.747
     else:
         assert False
 
@@ -157,7 +157,7 @@ if __name__ == "__main__":
     # filename = "DullLate.wav"
 
     # Spatial RIRs
-    # filename = "Asymmetry/5.wav"
+    filename = "Asymmetry/3.wav"
 
     # Passive Rooms
     # filename = "Passive11.wav"
@@ -170,12 +170,12 @@ if __name__ == "__main__":
     # filename = "DSE.wav"
 
     # filename = "Stimulus64.wav"
-    filename = "Stimulus101.wav"
+    # filename = "Stimulus101.wav"
 
     sample_rate, spatial_rir = wavfile.read(f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/{filename}")
-    # Colouration.getColouration(spatial_rir[:, 0], sample_rate, True)
+    # SDM.getSpatialAsymmetryScore(spatial_rir, sample_rate, True)
 
-    evaluateFeature("Colouration")
-    # evaluateFeature("Asymmetry")
+    # evaluateFeature("Colouration")
+    evaluateFeature("Asymmetry")
     # evaluateFeature("Flutter")
     # evaluateFeature("Spectral")

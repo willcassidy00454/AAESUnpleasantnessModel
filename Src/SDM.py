@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 import Utils
 from scipy.signal import savgol_filter
 import Energy
+from scipy.signal import butter, sosfilt
 
 
 # spatial_ir: impulse response in B-format
@@ -139,12 +140,19 @@ def plotSpatioTemporalMap(spatial_rir, sample_rate, plane="median", num_plot_ang
 
 
 def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
+    hpf_cutoff_Hz = 600.0
+    sos = butter(4, hpf_cutoff_Hz, 'highpass', fs=sample_rate, output='sos')
+    spatial_rir[:, 0] = sosfilt(sos, spatial_rir[:, 0])
+    spatial_rir[:, 1] = sosfilt(sos, spatial_rir[:, 1])
+    spatial_rir[:, 2] = sosfilt(sos, spatial_rir[:, 2])
+    spatial_rir[:, 3] = sosfilt(sos, spatial_rir[:, 3])
+
     # Get EDC of omni component
     edc_dB, edc_times = Energy.getEDC(spatial_rir[:, 0], sample_rate)
 
     # Find time region between -30 and -40 dB decay (late energy)
-    late_start_samples = Utils.findIndexOfClosest(edc_dB, -30)
-    late_end_samples = Utils.findIndexOfClosest(edc_dB, -40)
+    late_start_samples = Utils.findIndexOfClosest(edc_dB, -15)
+    late_end_samples = Utils.findIndexOfClosest(edc_dB, -16)
 
     late_start_ms = edc_times[late_start_samples] * 1000
     late_end_ms = edc_times[late_end_samples] * 1000
@@ -204,7 +212,7 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
 
     # Spatial score is how off-centre the late energy is, where narrow responses contribute to a higher score
     # Late energy that is one-sided and lateral will increase the score
-    spatial_score = off_centre_ratio_dB + 20 * narrowness #magnitude_of_late_mean_linear - late_surface_area_linear
+    spatial_score = (off_centre_ratio_dB + 20 * narrowness) + angle_weighting #magnitude_of_late_mean_linear - late_surface_area_linear
 
     if show_plots:
         fig, axes = plt.subplots(subplot_kw={'projection': 'polar'})
