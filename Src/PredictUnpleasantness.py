@@ -104,19 +104,19 @@ def predictUnpleasantnessFromRIR(rir_filepath):
 
 def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, curvature_score, spectral_score, prog_item):
     if prog_item == 1:
-        y_intercept = 65.392
-        colouration_gradient = -17.960
-        flutter_gradient = -26.395
-        asymmetry_gradient = -0.489
-        curvature_gradient = 35.477
-        spectral_gradient = -1.605
+        y_intercept = -3626.307
+        colouration_gradient = -2376.983
+        flutter_gradient = -36.506
+        asymmetry_gradient = -0.326
+        curvature_gradient = 31.777
+        spectral_gradient = -1.095
     elif prog_item == 2:
-        y_intercept = 83.868
-        colouration_gradient = -35.266
-        flutter_gradient = 38.719
-        asymmetry_gradient = -0.101
-        curvature_gradient = 24.438
-        spectral_gradient = 0.494
+        y_intercept = -5423.533
+        colouration_gradient = -3542.625
+        flutter_gradient = 27.488
+        asymmetry_gradient = 0.072
+        curvature_gradient = 22.898
+        spectral_gradient = 1.163
     else:
         assert False
 
@@ -157,7 +157,7 @@ if __name__ == "__main__":
     # filename = "DullLate.wav"
 
     # Spatial RIRs
-    filename = "Asymmetry/5.wav"
+    # filename = "Asymmetry/5.wav"
 
     # Passive Rooms
     # filename = "Passive11.wav"
@@ -168,14 +168,14 @@ if __name__ == "__main__":
     # filename = "Pilsen3.wav"
     # filename = "Normal.wav"
     # filename = "DSE.wav"
-    # predictUnpleasantnessFromRIR(f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/{filename}")
-    # sample_rate, spatial_rir = wavfile.read(f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/{filename}")
-    # SDM.getSpatialAsymmetryScore(spatial_rir, sample_rate, True)
-    # SDM.plotSpatioTemporalMap(spatial_rir, sample_rate)
-    # rir = np.float32(spatial_rir[:, 0])
-    # print(DSE.getCurvature(rir, sample_rate, True))
 
-    # evaluateFeature("Colouration")
-    evaluateFeature("Asymmetry")
+    # filename = "Stimulus64.wav"
+    filename = "Stimulus101.wav"
+
+    sample_rate, spatial_rir = wavfile.read(f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/{filename}")
+    # Colouration.getColouration(spatial_rir[:, 0], sample_rate, True)
+
+    evaluateFeature("Colouration")
+    # evaluateFeature("Asymmetry")
     # evaluateFeature("Flutter")
     # evaluateFeature("Spectral")

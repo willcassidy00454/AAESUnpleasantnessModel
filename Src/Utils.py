@@ -173,3 +173,34 @@ def getFrequencyIndexRange(frequency_indices, min_frequency, max_frequency, samp
     frequency_index_range = range(min_freq_index, max_freq_index)
 
     return frequency_index_range
+
+
+def applyEqualLoudnessContour(mag_spectrum_dB, mag_spectrum_freqs):
+    # ISO 226:2003 standard frequencies
+    equal_loudness_freqs = np.array([
+        20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160,
+        200, 250, 315, 400, 500, 630, 800, 1000, 1250,
+        1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000,
+        10000, 12500
+    ])
+
+    # Approximate equal-loudness corrections in dB at 60 phon
+    equal_loudness_magnitudes_dB = np.array([
+        78.5, 68.7, 59.5, 51.1, 44.0, 37.5, 31.5, 26.5, 22.1,
+        17.9, 14.4, 11.4, 8.6, 6.2, 4.4, 3.0, 2.2, 2.4, 3.5,
+        1.7, 1.3, 4.2, 6.0, 5.4, 1.5, 6.0, 12.6, 13.9, 12.3
+    ])
+
+    max_dB = 78.5
+    equal_loudness_magnitudes_linear = equal_loudness_magnitudes_dB / max_dB
+
+    # Interpolate equal-loudness curve
+    equal_loudness_curve = interp1d(equal_loudness_freqs, equal_loudness_magnitudes_linear, kind="linear", bounds_error=False, fill_value="extrapolate")
+
+    # Get correction for given frequencies
+    correction_curve = equal_loudness_curve(mag_spectrum_freqs)
+
+    # Apply correction
+    corrected_magnitudes_dB = mag_spectrum_dB / correction_curve
+
+    return corrected_magnitudes_dB

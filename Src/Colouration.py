@@ -4,6 +4,7 @@ import RT
 import Utils
 import Energy
 from scipy.signal import savgol_filter
+import heapq
 
 
 def showPlots(rir, colouration_score, mag_spectrum_log_trunc, mag_spectrum_smoothed, mag_over_means, mag_spectrum_freqs):
@@ -53,33 +54,43 @@ def getColouration(rir, sample_rate, should_show_plots=False):
     # Truncate result (Schroeder frequency lower, 2 kHz upper) and convert spectrum to log frequency
     room_volume = 5000 # assumed
     schroeder_frequency = 2000.0 * np.sqrt(rt / room_volume)
-    upper_frequency_limit = 2000 # modified from 4 kHz
+    lower_frequency_limit = schroeder_frequency
+    upper_frequency_limit = 4000 # modified from 4 kHz
 
-    mag_spectrum_log_trunc, mag_spectrum_freqs = Utils.linearToLog(mag_spectrum, sample_rate, schroeder_frequency, upper_frequency_limit)
+    mag_spectrum_log_trunc_linear, mag_spectrum_freqs = Utils.linearToLog(mag_spectrum, sample_rate, lower_frequency_limit, upper_frequency_limit)
 
     # Convert magnitude to decibels (modification)
-    mag_spectrum_log_trunc = 10 * np.log10(mag_spectrum_log_trunc)
+    mag_spectrum_log_trunc_dB = mag_spectrum_log_trunc_linear#10 * np.log10(mag_spectrum_log_trunc_linear)
 
     # Get smoothed spectrum, mirroring start and ends for one window length to avoid edge effects
     num_octaves = np.log10(mag_spectrum_freqs[-1] / mag_spectrum_freqs[0]) / np.log10(2)
-    window_size = int((len(mag_spectrum_log_trunc) / num_octaves) * 0.15) # Smooth in 0.15 * octave bands
-    mirrored_bins_start = mag_spectrum_log_trunc[window_size:0:-1]
-    mirrored_bins_end = mag_spectrum_log_trunc[:-window_size-1:-1]
+    window_size = int((len(mag_spectrum_log_trunc_dB) / num_octaves) * 0.15) # Smooth in 0.15 * octave bands
+    mirrored_bins_start = mag_spectrum_log_trunc_dB[window_size:0:-1]
+    mirrored_bins_end = mag_spectrum_log_trunc_dB[:-window_size - 1:-1]
 
-    mag_spectrum_to_smooth = np.concat([mirrored_bins_start, mag_spectrum_log_trunc, mirrored_bins_end])
+    mag_spectrum_to_smooth = np.concat([mirrored_bins_start, mag_spectrum_log_trunc_dB, mirrored_bins_end])
     mag_spectrum_smoothed = savgol_filter(mag_spectrum_to_smooth, window_size, 1)
     mag_spectrum_smoothed = mag_spectrum_smoothed[window_size:-window_size]
 
     # Subtract smoothed magnitude from raw (modification; use divide for standard)
-    mag_minus_mean = mag_spectrum_log_trunc - mag_spectrum_smoothed
+    mag_minus_mean_dB = mag_spectrum_log_trunc_dB / mag_spectrum_smoothed
+
+    # Apply equal-loudness contour
+    mag_minus_mean_equal_loud_dB = Utils.applyEqualLoudnessContour(mag_minus_mean_dB, mag_spectrum_freqs)
+
+    # Subtract mean to return corrected spectrum about zero
+    # mag_minus_mean_equal_loud_dB -= np.mean(mag_minus_mean_equal_loud_dB)
 
     # Clip below 0 to remove notch effects due to dB scale (modification)
-    mag_minus_mean = np.clip(mag_minus_mean, 0, None)
+    # mag_minus_mean_equal_loud_dB = np.clip(mag_minus_mean_equal_loud_dB, 0, None)
+    # mag_minus_mean_dB = np.clip(mag_minus_mean_dB, 0, None)
 
     # Output summation of standard deviation and peakedness (modification)
-    std_dev = np.std(mag_minus_mean)
-    peakedness = np.log10(np.max(mag_minus_mean) - np.mean(mag_minus_mean) - std_dev)
-    colouration_score = std_dev + peakedness
+    std_dev_dB = np.std(mag_minus_mean_equal_loud_dB)
+    peakedness = np.log10(np.max(mag_minus_mean_equal_loud_dB) - np.mean(mag_minus_mean_dB) - std_dev_dB)
+    # peak = np.mean(heapq.nlargest(10, mag_minus_mean_dB))
+    # peak_to_mean_ratio = np.log10(np.max(mag_minus_mean_dB)) - np.log10(np.mean(mag_minus_mean_dB))
+    colouration_score = std_dev_dB / 175
 
     # Scale to approximately 0-1 (modification)
     colouration_score = (colouration_score - 1.5) / 0.9
@@ -87,9 +98,9 @@ def getColouration(rir, sample_rate, should_show_plots=False):
     if should_show_plots:
         showPlots(rir,
                   colouration_score,
-                  mag_spectrum_log_trunc,
+                  mag_spectrum_log_trunc_dB,
                   mag_spectrum_smoothed,
-                  mag_minus_mean,
+                  mag_minus_mean_equal_loud_dB,
                   mag_spectrum_freqs)
 
     return colouration_score
