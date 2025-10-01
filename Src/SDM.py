@@ -140,12 +140,12 @@ def plotSpatioTemporalMap(spatial_rir, sample_rate, plane="median", num_plot_ang
 
 
 def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
-    hpf_cutoff_Hz = 600.0
-    sos = butter(4, hpf_cutoff_Hz, 'highpass', fs=sample_rate, output='sos')
+    hpf_cutoff_Hz = 1000.0
+    sos = butter(2, hpf_cutoff_Hz, 'highpass', fs=sample_rate, output='sos')
     spatial_rir[:, 0] = sosfilt(sos, spatial_rir[:, 0])
-    spatial_rir[:, 1] = sosfilt(sos, spatial_rir[:, 1])
-    spatial_rir[:, 2] = sosfilt(sos, spatial_rir[:, 2])
-    spatial_rir[:, 3] = sosfilt(sos, spatial_rir[:, 3])
+    # spatial_rir[:, 1] = sosfilt(sos, spatial_rir[:, 1])
+    # spatial_rir[:, 2] = sosfilt(sos, spatial_rir[:, 2])
+    # spatial_rir[:, 3] = sosfilt(sos, spatial_rir[:, 3])
 
     # Get EDC of omni component
     edc_dB, edc_times = Energy.getEDC(spatial_rir[:, 0], sample_rate)
@@ -203,8 +203,8 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
     # direct_late_angle_difference_rad = np.min([absolute_angle_difference_rad, (2.0 * np.pi) - absolute_angle_difference_rad])
 
     # Angle weighting is such that hard L/R is 1 and front/back is 0
-    angle_weighting = np.abs(np.sin(angle_of_late_mean_rad_wrapped - (np.pi / 2))) # for max at 90 deg
-    # angle_weighting = (1.0 - np.cos(angle_of_late_mean_rad_wrapped)) * 0.5 # for max at 180 deg
+    # angle_weighting = np.abs(np.sin(angle_of_late_mean_rad_wrapped - (np.pi / 2))) # for max at 90 deg
+    angle_weighting = (1.0 - np.cos(angle_of_late_mean_rad_wrapped)) * 0.5 # for max at 180 deg
 
     # Off-centre factor is the magnitude of the centre of gravity (mean) of the peak-normalised late spatial energy
     # This differs from the mean of the radii as a near-zero mean could be yielded for a narrow but symmetrical response
