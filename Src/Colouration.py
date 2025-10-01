@@ -4,7 +4,6 @@ import RT
 import Utils
 import Energy
 from scipy.signal import savgol_filter
-import heapq
 
 
 def showPlots(rir, colouration_score, mag_spectrum_log_trunc, mag_spectrum_smoothed, mag_over_means, mag_spectrum_freqs):
@@ -60,7 +59,7 @@ def getColouration(rir, sample_rate, should_show_plots=False):
     mag_spectrum_log_trunc_linear, mag_spectrum_freqs = Utils.linearToLog(mag_spectrum, sample_rate, lower_frequency_limit, upper_frequency_limit)
 
     # Convert magnitude to decibels (modification)
-    mag_spectrum_log_trunc_dB = mag_spectrum_log_trunc_linear#10 * np.log10(mag_spectrum_log_trunc_linear)
+    mag_spectrum_log_trunc_dB = 10 * np.log10(mag_spectrum_log_trunc_linear)
 
     # Get smoothed spectrum, mirroring start and ends for one window length to avoid edge effects
     num_octaves = np.log10(mag_spectrum_freqs[-1] / mag_spectrum_freqs[0]) / np.log10(2)
@@ -73,27 +72,23 @@ def getColouration(rir, sample_rate, should_show_plots=False):
     mag_spectrum_smoothed = mag_spectrum_smoothed[window_size:-window_size]
 
     # Subtract smoothed magnitude from raw (modification; use divide for standard)
-    mag_minus_mean_dB = mag_spectrum_log_trunc_dB / mag_spectrum_smoothed
+    mag_minus_mean_dB = mag_spectrum_log_trunc_dB - mag_spectrum_smoothed
 
     # Apply equal-loudness contour
     mag_minus_mean_equal_loud_dB = Utils.applyEqualLoudnessContour(mag_minus_mean_dB, mag_spectrum_freqs)
-
-    # Subtract mean to return corrected spectrum about zero
-    # mag_minus_mean_equal_loud_dB -= np.mean(mag_minus_mean_equal_loud_dB)
+    mag_minus_mean_equal_loud_linear = 10 ** (mag_minus_mean_equal_loud_dB / 10)
 
     # Clip below 0 to remove notch effects due to dB scale (modification)
     # mag_minus_mean_equal_loud_dB = np.clip(mag_minus_mean_equal_loud_dB, 0, None)
-    # mag_minus_mean_dB = np.clip(mag_minus_mean_dB, 0, None)
+    mag_minus_mean_dB = np.clip(mag_minus_mean_dB, 0, None)
 
     # Output summation of standard deviation and peakedness (modification)
-    std_dev_dB = np.std(mag_minus_mean_equal_loud_dB)
-    peakedness = np.log10(np.max(mag_minus_mean_equal_loud_dB) - np.mean(mag_minus_mean_dB) - std_dev_dB)
-    # peak = np.mean(heapq.nlargest(10, mag_minus_mean_dB))
-    # peak_to_mean_ratio = np.log10(np.max(mag_minus_mean_dB)) - np.log10(np.mean(mag_minus_mean_dB))
-    colouration_score = std_dev_dB / 175
+    std_dev_linear = np.std(mag_minus_mean_equal_loud_linear)
+    peakedness = np.log10(np.max(mag_minus_mean_dB) - np.mean(mag_minus_mean_dB) - np.std(mag_minus_mean_dB))
+    colouration_score = std_dev_linear * peakedness
 
     # Scale to approximately 0-1 (modification)
-    colouration_score = (colouration_score - 1.5) / 0.9
+    colouration_score = (colouration_score - 0.15) / 0.2
 
     if should_show_plots:
         showPlots(rir,

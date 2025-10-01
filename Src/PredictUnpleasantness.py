@@ -85,8 +85,8 @@ def evaluateFeature(feature="Colouration"):
     plt.ylabel(f"{feature} Feature Score")
     plt.title(f"{feature} (R-squared = {round(r_value ** 2, 2)}, Spear. Corr. = {round(spearman_correlation, 2)})")
 
-    # for i in range(15):
-    #     plt.annotate(str(i + 1), (mean_results[i], feature_outputs[i]))
+    for i in range(15):
+        plt.annotate(str(i + 1), (mean_results[i], feature_outputs[i]))
 
     plt.show()
 
@@ -104,19 +104,19 @@ def predictUnpleasantnessFromRIR(rir_filepath):
 
 def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, curvature_score, spectral_score, prog_item):
     if prog_item == 1:
-        y_intercept = -3626.307
-        colouration_gradient = -2376.983
-        flutter_gradient = -36.506
-        asymmetry_gradient = -0.326
-        curvature_gradient = 31.777
-        spectral_gradient = -1.095
+        y_intercept = 71.816
+        colouration_gradient = -20.047
+        flutter_gradient = -33.161
+        asymmetry_gradient = -0.306
+        curvature_gradient = 31.759
+        spectral_gradient = -1.328
     elif prog_item == 2:
-        y_intercept = -5423.533
-        colouration_gradient = -3542.625
-        flutter_gradient = 27.488
-        asymmetry_gradient = 0.072
-        curvature_gradient = 22.898
-        spectral_gradient = 1.163
+        y_intercept = 94.860
+        colouration_gradient = -37.529
+        flutter_gradient = 26.794
+        asymmetry_gradient = 0.227
+        curvature_gradient = 18.246
+        spectral_gradient =  0.995
     else:
         assert False
 
