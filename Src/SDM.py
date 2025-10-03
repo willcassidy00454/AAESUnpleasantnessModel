@@ -44,7 +44,7 @@ def getSpatioTemporalMap(spatial_ir,
 
     if start_is_relative_to_direct:
         # Assumes the direct sound arrives as the maximum sample of the omni channel
-        direct_sample_index = np.argmax(spatial_ir[:, 0])
+        direct_sample_index = np.argmax(np.abs(spatial_ir[:, 0]))
 
         # Set start relative to the direct sample
         start_index = np.max([0, direct_sample_index + start_samples])
@@ -140,90 +140,148 @@ def plotSpatioTemporalMap(spatial_rir, sample_rate, plane="median", num_plot_ang
 
 
 def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
-    hpf_cutoff_Hz = 1000.0
+    hpf_cutoff_Hz = 500.0
     sos = butter(2, hpf_cutoff_Hz, 'highpass', fs=sample_rate, output='sos')
-    spatial_rir[:, 0] = sosfilt(sos, spatial_rir[:, 0])
-    # spatial_rir[:, 1] = sosfilt(sos, spatial_rir[:, 1])
-    # spatial_rir[:, 2] = sosfilt(sos, spatial_rir[:, 2])
-    # spatial_rir[:, 3] = sosfilt(sos, spatial_rir[:, 3])
+    hpf_omni_rir = sosfilt(sos, spatial_rir[:, 0])
+    # # spatial_rir[:, 1] = sosfilt(sos, spatial_rir[:, 1])
+    # # spatial_rir[:, 2] = sosfilt(sos, spatial_rir[:, 2])
+    # # spatial_rir[:, 3] = sosfilt(sos, spatial_rir[:, 3])
 
     # Get EDC of omni component
     edc_dB, edc_times = Energy.getEDC(spatial_rir[:, 0], sample_rate)
+    #
+    # # Find time region between -30 and -40 dB decay (late energy)
+    # late_start_samples = Utils.findIndexOfClosest(edc_dB, -15)
+    # # late_end_samples = Utils.findIndexOfClosest(edc_dB, -35)
+    #
+    # late_start_ms = edc_times[late_start_samples] * 1000
+    # # late_end_ms = edc_times[late_end_samples] * 1000
 
-    # Find time region between -30 and -40 dB decay (late energy)
-    late_start_samples = Utils.findIndexOfClosest(edc_dB, -15)
-    late_end_samples = Utils.findIndexOfClosest(edc_dB, -16)
+    rir_duration_ms = edc_times[Utils.findIndexOfClosest(edc_dB, -45)] * 1000
+    # rir_duration_ms = 550
+    first_order_rir = zeroPadOrTruncateToDuration(spatial_rir, sample_rate, rir_duration_ms)
 
-    late_start_ms = edc_times[late_start_samples] * 1000
-    late_end_ms = edc_times[late_end_samples] * 1000
+    start_times_ms = [edc_times[Utils.findIndexOfClosest(edc_dB, -10)] * 1000,
+                      edc_times[Utils.findIndexOfClosest(edc_dB, -20)] * 1000,
+                      edc_times[Utils.findIndexOfClosest(edc_dB, -30)] * 1000,
+                      edc_times[Utils.findIndexOfClosest(edc_dB, -40)] * 1000]
+    # start_times_ms = [300.0]
 
-    # Get late energy spatial bins (around the azimuth)
-    late_angles_rad, radii_late_dB = getSpatioTemporalMap(spatial_rir,
-                                                          sample_rate,
-                                                          start_ms=late_start_ms,
-                                                          duration_ms=late_end_ms - late_start_ms,
-                                                          start_is_relative_to_direct=False,
-                                                          plane="median",
-                                                          num_plot_angles=100)
+    median_plane_scores = np.zeros_like(start_times_ms)
+    transverse_plane_scores = np.zeros_like(start_times_ms)
+    lateral_plane_scores = np.zeros_like(start_times_ms)
 
-    # Get direct energy direction (argmax of a fairly high-res map between -1 and 3 ms relative to the direct)
-    direct_angles_rad, radii_direct_dB = getSpatioTemporalMap(spatial_rir,
-                                                     sample_rate,
-                                                     start_ms=-1,
-                                                     duration_ms=3,
-                                                     start_is_relative_to_direct=True,
-                                                     plane="median",
-                                                     num_plot_angles=100)
+    for score_index, start_ms in enumerate(start_times_ms):
+        median_plane_scores[score_index] = getAsymmetryScoreForTimeRegion(first_order_rir,
+                                                                          sample_rate,
+                                                                          start_ms,
+                                                                          50,
+                                                                          True,
+                                                                          show_plots,
+                                                                          "median")
+        transverse_plane_scores[score_index] = getAsymmetryScoreForTimeRegion(first_order_rir,
+                                                                          sample_rate,
+                                                                          start_ms,
+                                                                          10,
+                                                                          True,
+                                                                          show_plots,
+                                                                          "transverse")
+        lateral_plane_scores[score_index] = getAsymmetryScoreForTimeRegion(first_order_rir,
+                                                                          sample_rate,
+                                                                          start_ms,
+                                                                          50,
+                                                                          True,
+                                                                          show_plots,
+                                                                          "lateral")
 
-    # Normalise radii to 0 dBFS
-    max_dB = np.max(radii_late_dB)
-    radii_late_dB -= max_dB
-    radii_direct_dB -= max_dB
+    return np.mean(median_plane_scores) - np.max(lateral_plane_scores)# + np.max(lateral_plane_scores)
 
-    direct_index = np.argmax(radii_direct_dB)
-    direct_angle_rad = direct_angles_rad[direct_index]
 
-    # General Process:
-    # Determine how much the late energy is weighted towards one direction, and score more highly for lateral directions
-
+def getOffCentreRatio(radii_dB, angles_rad):
     # Convert radii (linear) and angles (rad) into cartesian coords, find geometric mean, convert back to polar
-    late_points_cartesian = Utils.pol2cart(10 ** (radii_late_dB / 10), late_angles_rad)
-    late_points_cartesian_mean = [np.mean(late_points_cartesian[0]), np.mean(late_points_cartesian[1])]
-    magnitude_of_late_mean_linear, angle_of_late_mean_rad = Utils.cart2pol(late_points_cartesian_mean[0], late_points_cartesian_mean[1])
-
-    # Since the radii are peak-normalised, taking the mean radius represents the surface area
-    # i.e. a circular response would yield the highest mean (unity), and a very narrow response would be near zero
-    late_surface_area_linear = np.mean(10 ** (radii_late_dB / 10))
-    narrowness = 1.0 - late_surface_area_linear
-
-    # Wrap the mean angle of the late energy within 0-2pi
-    # direct_angle_rad_wrapped = direct_angle_rad % (2.0 * np.pi)
-    angle_of_late_mean_rad_wrapped = angle_of_late_mean_rad % (2.0 * np.pi)
-    # absolute_angle_difference_rad = np.abs(direct_angle_rad_wrapped - angle_of_late_mean_rad_wrapped)
-    # direct_late_angle_difference_rad = np.min([absolute_angle_difference_rad, (2.0 * np.pi) - absolute_angle_difference_rad])
-
-    # Angle weighting is such that hard L/R is 1 and front/back is 0
-    # angle_weighting = np.abs(np.sin(angle_of_late_mean_rad_wrapped - (np.pi / 2))) # for max at 90 deg
-    angle_weighting = (1.0 - np.cos(angle_of_late_mean_rad_wrapped)) * 0.5 # for max at 180 deg
+    points_cartesian = Utils.pol2cart(10 ** (radii_dB / 10), angles_rad)
+    mean_of_points_cartesian = [np.mean(points_cartesian[0]), np.mean(points_cartesian[1])]
+    magnitude_of_mean_linear, angle_of_mean_rad = Utils.cart2pol(mean_of_points_cartesian[0],
+                                                                 mean_of_points_cartesian[1])
 
     # Off-centre factor is the magnitude of the centre of gravity (mean) of the peak-normalised late spatial energy
     # This differs from the mean of the radii as a near-zero mean could be yielded for a narrow but symmetrical response
-    off_centre_ratio_dB = 10 * np.log10(magnitude_of_late_mean_linear)
+    off_centre_ratio_dB = 10 * np.log10(magnitude_of_mean_linear)
+
+    return off_centre_ratio_dB, angle_of_mean_rad
+
+
+def getNarrowness(radii_dBFS):
+    # Since the radii are peak-normalised, taking the mean radius represents the surface area
+    # i.e. a circular response would yield the highest mean (unity), and a very narrow response would be near zero
+    late_surface_area_linear = np.mean(10 ** (radii_dBFS / 10))
+    narrowness = 1.0 - late_surface_area_linear
+
+    return narrowness
+
+
+def getAngleWeighting(angle_rad_unwrapped):
+    # Wrap the mean angle of the late energy within 0-2pi
+    # direct_angle_rad_wrapped = direct_angle_rad % (2.0 * np.pi)
+    angle_rad_wrapped = angle_rad_unwrapped % (2.0 * np.pi)
+
+    # Angle weighting is such that hard L/R is 1 and front/back is 0
+    # angle_weighting = np.abs(np.sin(angle_rad_wrapped - (np.pi / 2))) # for max at 90 deg
+    angle_weighting = (1.0 - np.cos(angle_rad_wrapped)) * 0.5 # for max at 180 deg
+
+    return angle_weighting
+
+
+# Determine how much the late energy is weighted towards one direction, and score more highly for angle regions defined by getAngleWeighting()
+def getAsymmetryScoreForTimeRegion(spatial_rir, sample_rate, start_ms, duration_ms, start_is_relative_to_direct=True, show_plots=True, plane="median"):
+    # Get DOA angles and radii for time region
+    angles_rad, radii_dB = getSpatioTemporalMap(spatial_rir,
+                                                sample_rate,
+                                                start_ms=start_ms,
+                                                duration_ms=duration_ms,
+                                                start_is_relative_to_direct=start_is_relative_to_direct,
+                                                plane=plane,
+                                                num_plot_angles=100)
+
+    # Normalise radii to 0 dBFS
+    max_dB = np.max(radii_dB)
+    radii_dBFS = radii_dB - max_dB
+
+    off_centre_ratio_dB, angle_of_mean_rad = getOffCentreRatio(radii_dBFS, angles_rad)
+
+    narrowness = getNarrowness(radii_dBFS)
+
+    angle_weighting = getAngleWeighting(angle_of_mean_rad)
 
     # Spatial score is how off-centre the late energy is, where narrow responses contribute to a higher score
     # Late energy that is one-sided and lateral will increase the score
-    spatial_score = (off_centre_ratio_dB + 20 * narrowness) + angle_weighting #magnitude_of_late_mean_linear - late_surface_area_linear
+    spatial_score = narrowness #+ angle_weighting
 
     if show_plots:
         fig, axes = plt.subplots(subplot_kw={'projection': 'polar'})
         # axes.set_ylim([min_normalised_dB - 5, 0])
-        plt.plot([direct_angle_rad, direct_angle_rad], [-5, 0], color="blue", alpha=1, label="Direct")
-        plt.plot([angle_of_late_mean_rad, angle_of_late_mean_rad], [-5, 0], color="black", alpha=1, label="Late")
-        plt.fill(late_angles_rad, radii_late_dB, color="black", alpha=0.3, label=f"Late ({np.round(late_start_ms)}-{np.round(late_end_ms)} ms)")
-        plt.scatter(angle_of_late_mean_rad, off_centre_ratio_dB, label="Mean of Late")
+        # plt.plot([direct_angle_rad, direct_angle_rad], [-5, 0], color="blue", alpha=1, label="Direct")
+        plt.plot([angle_of_mean_rad, angle_of_mean_rad], [-5, 0], color="black", alpha=1, label="Late")
+        plt.fill(angles_rad, radii_dBFS, color="black", alpha=0.3, label=f"Late ({np.round(start_ms)}-{np.round(start_ms + duration_ms)} ms)")
+        plt.scatter(angle_of_mean_rad, off_centre_ratio_dB, label="Mean of Late")
         axes.set_axisbelow(True)
         # plt.legend(loc='best')
         plt.suptitle(f"Spatial Asymmetry Score = {np.round(spatial_score, 2)}")
         plt.show()
 
     return spatial_score
+
+
+def zeroPadOrTruncateToDuration(spatial_rir, sample_rate, duration_after_direct_ms):
+    # This only returns the first four channels
+    direct_position = np.argmax(np.abs(spatial_rir[:, 0]))
+
+    overall_length_samples = int(np.floor(sample_rate * (duration_after_direct_ms / 1000.0) + direct_position))
+
+    resized_first_order_rir = np.zeros([overall_length_samples, 4])
+
+    for channel_index in range(4):
+        num_samples_to_insert = np.min([len(spatial_rir[:, 0]), overall_length_samples])
+        resized_first_order_rir[:, channel_index] = spatial_rir[:num_samples_to_insert, channel_index]
+
+    return resized_first_order_rir
