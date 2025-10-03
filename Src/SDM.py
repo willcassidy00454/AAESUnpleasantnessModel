@@ -6,6 +6,7 @@ import Utils
 from scipy.signal import savgol_filter
 import Energy
 from scipy.signal import butter, sosfilt
+from scipy import stats
 
 
 # spatial_ir: impulse response in B-format
@@ -158,6 +159,7 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
     num_times = 4
 
     all_doas = np.zeros([num_octave_bands, 3, num_times, num_plot_angles])
+    circular_stds = np.zeros([num_octave_bands, 3, num_times])
 
     for octave_band_index in range(num_octave_bands):
         # Get EDC of omni component
@@ -181,16 +183,18 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
             planes = ["median", "transverse", "lateral"]
 
             for plane_index, plane in enumerate(planes):
-                doas, _ = getAsymmetryScoreForTimeRegion(first_order_rir,
-                                                         sample_rate,
-                                                         start_ms,
-                                                         300,
-                                                         True,
-                                                         show_plots,
-                                                         plane,
-                                                         num_plot_angles)
+                doa_radii, doa_angles = getAsymmetryScoreForTimeRegion(first_order_rir,
+                                                                       sample_rate,
+                                                                       start_ms,
+                                                                       300,
+                                                                       True,
+                                                                       show_plots,
+                                                                       plane,
+                                                                       num_plot_angles)
 
-                all_doas[octave_band_index, plane_index, time_index, :] = doas - np.max(doas)
+                all_doas[octave_band_index, plane_index, time_index, :] = doa_radii - np.max(doa_radii)
+
+                circular_stds[octave_band_index, plane_index, time_index] = Utils.circularStd(10 ** (doa_radii / 10), doa_angles)
 
     if show_plots:
         plt.title("Median Plane Radius (dB)")
@@ -203,7 +207,7 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
         # plt.clim(0.75, 0.925)
         plt.show()
 
-    return np.log10(np.std(all_doas[1, 0, 2, :]) + np.std(all_doas[2, 0, 2, :]) + np.std(all_doas[3, 0, 2, :]) + np.std(all_doas[4, 0, 2, :]))
+    return -np.sum(circular_stds[1:4, 0, 1:3])#np.log10(np.std(all_doas[1, 0, 2, :]) + np.std(all_doas[2, 0, 2, :]) + np.std(all_doas[3, 0, 2, :]) + np.std(all_doas[4, 0, 2, :]))
 
 def getOffCentreRatio(radii_dB, angles_rad):
     # Convert radii (linear) and angles (rad) into cartesian coords, find geometric mean, convert back to polar

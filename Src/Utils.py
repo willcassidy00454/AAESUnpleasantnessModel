@@ -201,3 +201,13 @@ def applyEqualLoudnessContour(mag_spectrum_dB, mag_spectrum_freqs):
     corrected_magnitudes_dB = mag_spectrum_dB - correction_curve
 
     return corrected_magnitudes_dB
+
+
+def circularStd(radii, angles_rad):
+    # Weighted circular statistics
+    x = np.sum(radii * np.cos(angles_rad))
+    y = np.sum(radii * np.sin(angles_rad))
+    R = np.sqrt(x ** 2 + y ** 2) / np.sum(radii)
+
+    # Circular standard deviation
+    return np.sqrt(-2 * np.log(R))

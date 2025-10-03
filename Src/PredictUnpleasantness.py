@@ -104,19 +104,19 @@ def predictUnpleasantnessFromRIR(rir_filepath):
 
 def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, curvature_score, spectral_score, prog_item):
     if prog_item == 1:
-        y_intercept = 93.251
-        colouration_gradient = -16.015
-        flutter_gradient = -24.564
-        asymmetry_gradient = -19.955
-        curvature_gradient = 31.623
-        spectral_gradient = -1.302
+        y_intercept = 53.890
+        colouration_gradient = -17.484
+        flutter_gradient = -30.633
+        asymmetry_gradient = -2.002
+        curvature_gradient = 28.204
+        spectral_gradient = -1.281
     elif prog_item == 2:
-        y_intercept = 92.841
-        colouration_gradient = -35.183
-        flutter_gradient = 33.842
-        asymmetry_gradient = -5.417
-        curvature_gradient = 19.827
-        spectral_gradient = 0.979
+        y_intercept = 69.730
+        colouration_gradient = -33.181
+        flutter_gradient = 35.512
+        asymmetry_gradient = -1.467
+        curvature_gradient = 16.917
+        spectral_gradient = 1.038
     else:
         assert False
 
