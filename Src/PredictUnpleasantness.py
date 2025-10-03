@@ -104,19 +104,19 @@ def predictUnpleasantnessFromRIR(rir_filepath):
 
 def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, curvature_score, spectral_score, prog_item):
     if prog_item == 1:
-        y_intercept = 85.085
-        colouration_gradient = -23.552
-        flutter_gradient = -44.862
-        asymmetry_gradient = 10.944
-        curvature_gradient = 32.860
-        spectral_gradient = -1.439
+        y_intercept = 93.251
+        colouration_gradient = -16.015
+        flutter_gradient = -24.564
+        asymmetry_gradient = -19.955
+        curvature_gradient = 31.623
+        spectral_gradient = -1.302
     elif prog_item == 2:
-        y_intercept = 102.673
-        colouration_gradient = -39.675
-        flutter_gradient = 8.351
-        asymmetry_gradient = 34.065
-        curvature_gradient = 21.179
-        spectral_gradient = 0.823
+        y_intercept = 92.841
+        colouration_gradient = -35.183
+        flutter_gradient = 33.842
+        asymmetry_gradient = -5.417
+        curvature_gradient = 19.827
+        spectral_gradient = 0.979
     else:
         assert False
 
@@ -150,14 +150,14 @@ if __name__ == "__main__":
     # filename = "horizontal_1.wav" # near zero flutter
     # filename = "NoiseIR_RT_1s_48k_1.wav" # zero flutter
     # filename = "Room33.wav"
-    filename = "SingleLSLeft.wav"
+    # filename = "SingleLSLeft.wav"
     # filename = "Wet.wav"
     # filename = "BrightLate.wav"
     # filename = "BrightLateColoured.wav"
     # filename = "DullLate.wav"
 
     # Spatial RIRs
-    filename = "Asymmetry/5.wav"
+    filename = "Asymmetry/11.wav"
 
     # Passive Rooms
     # filename = "Passive11.wav"

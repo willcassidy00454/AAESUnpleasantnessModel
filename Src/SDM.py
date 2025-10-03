@@ -101,15 +101,15 @@ def getSpatioTemporalMap(spatial_ir,
         indices = angles_0toN_wrapped == angle_index
         radii[angle_index] = np.nansum(energy_linear[indices] * np.abs(np.cos(doa_spherical_rad[indices, 2])))
 
-    window_length = 5
-    radii_wrapped_for_start = radii[-window_length - 1:-1]
-    radii_wrapped_for_end = radii[:window_length]
-    radii_to_smooth = np.concat([radii_wrapped_for_start, radii, radii_wrapped_for_end])
-    radii_smoothed = savgol_filter(radii_to_smooth, window_length, 1)
-    radii_smoothed = radii_smoothed[window_length:-window_length]
+    # window_length = 5
+    # radii_wrapped_for_start = radii[-window_length - 1:-1]
+    # radii_wrapped_for_end = radii[:window_length]
+    # radii_to_smooth = np.concat([radii_wrapped_for_start, radii, radii_wrapped_for_end])
+    # radii_smoothed = savgol_filter(radii_to_smooth, window_length, 1)
+    # radii_smoothed = radii_smoothed[window_length:-window_length]
 
     # Convert energy radius to decibels, clipping at -60 dB
-    radii_dB = 10 * np.log10(np.clip(radii_smoothed, 1e-6, None))
+    radii_dB = 10 * np.log10(np.clip(radii, 1e-8, None))
 
     # Mirror along the x-axis to match Treble presentation
     angles_rad_corrected = np.pi - angles_rad
@@ -140,62 +140,70 @@ def plotSpatioTemporalMap(spatial_rir, sample_rate, plane="median", num_plot_ang
 
 
 def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
-    hpf_cutoff_Hz = 500.0
-    sos = butter(2, hpf_cutoff_Hz, 'highpass', fs=sample_rate, output='sos')
-    hpf_omni_rir = sosfilt(sos, spatial_rir[:, 0])
+    # hpf_cutoff_Hz = 500.0
+    # sos = butter(2, hpf_cutoff_Hz, "highpass", fs=sample_rate, output='sos')
+    # hpf_omni_rir = sosfilt(sos, spatial_rir[:, 0])
     # # spatial_rir[:, 1] = sosfilt(sos, spatial_rir[:, 1])
     # # spatial_rir[:, 2] = sosfilt(sos, spatial_rir[:, 2])
     # # spatial_rir[:, 3] = sosfilt(sos, spatial_rir[:, 3])
 
-    # Get EDC of omni component
-    edc_dB, edc_times = Energy.getEDC(spatial_rir[:, 0], sample_rate)
-    #
-    # # Find time region between -30 and -40 dB decay (late energy)
-    # late_start_samples = Utils.findIndexOfClosest(edc_dB, -15)
-    # # late_end_samples = Utils.findIndexOfClosest(edc_dB, -35)
-    #
-    # late_start_ms = edc_times[late_start_samples] * 1000
-    # # late_end_ms = edc_times[late_end_samples] * 1000
+    num_octave_bands = 7
+    spatial_rir_octave_bands = np.zeros([num_octave_bands, len(spatial_rir[:, 0]), 4])
 
-    rir_duration_ms = edc_times[Utils.findIndexOfClosest(edc_dB, -45)] * 1000
-    # rir_duration_ms = 550
-    first_order_rir = zeroPadOrTruncateToDuration(spatial_rir, sample_rate, rir_duration_ms)
+    for channel_index in range(4):
+        octave_band_signals, octave_band_centres = Utils.getOctaveBandsFromIR(spatial_rir[:, channel_index], sample_rate)
+        spatial_rir_octave_bands[:, :, channel_index] = octave_band_signals.transpose()
 
-    start_times_ms = [edc_times[Utils.findIndexOfClosest(edc_dB, -10)] * 1000,
-                      edc_times[Utils.findIndexOfClosest(edc_dB, -20)] * 1000,
-                      edc_times[Utils.findIndexOfClosest(edc_dB, -30)] * 1000,
-                      edc_times[Utils.findIndexOfClosest(edc_dB, -40)] * 1000]
-    # start_times_ms = [300.0]
+    num_plot_angles = 20
+    num_times = 4
 
-    median_plane_scores = np.zeros_like(start_times_ms)
-    transverse_plane_scores = np.zeros_like(start_times_ms)
-    lateral_plane_scores = np.zeros_like(start_times_ms)
+    all_doas = np.zeros([num_octave_bands, 3, num_times, num_plot_angles])
 
-    for score_index, start_ms in enumerate(start_times_ms):
-        median_plane_scores[score_index] = getAsymmetryScoreForTimeRegion(first_order_rir,
-                                                                          sample_rate,
-                                                                          start_ms,
-                                                                          50,
-                                                                          True,
-                                                                          show_plots,
-                                                                          "median")
-        transverse_plane_scores[score_index] = getAsymmetryScoreForTimeRegion(first_order_rir,
-                                                                          sample_rate,
-                                                                          start_ms,
-                                                                          10,
-                                                                          True,
-                                                                          show_plots,
-                                                                          "transverse")
-        lateral_plane_scores[score_index] = getAsymmetryScoreForTimeRegion(first_order_rir,
-                                                                          sample_rate,
-                                                                          start_ms,
-                                                                          50,
-                                                                          True,
-                                                                          show_plots,
-                                                                          "lateral")
+    for octave_band_index in range(num_octave_bands):
+        # Get EDC of omni component
+        edc_dB, edc_times = Energy.getEDC(spatial_rir_octave_bands[octave_band_index, :, 0], sample_rate)
 
-    return np.mean(median_plane_scores) - np.max(lateral_plane_scores)# + np.max(lateral_plane_scores)
+        rir_duration_ms = edc_times[Utils.findIndexOfClosest(edc_dB, -40)] * 1000
+        # rir_duration_ms = 550
+        first_order_rir = zeroPadOrTruncateToDuration(spatial_rir_octave_bands[octave_band_index, :, :], sample_rate, rir_duration_ms)
 
+        start_times_ms = [edc_times[Utils.findIndexOfClosest(edc_dB, -20)] * 1000,
+                          edc_times[Utils.findIndexOfClosest(edc_dB, -25)] * 1000,
+                          edc_times[Utils.findIndexOfClosest(edc_dB, -30)] * 1000,
+                          edc_times[Utils.findIndexOfClosest(edc_dB, -35)] * 1000]
+        # start_times_ms = [50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 550.0, 600.0, 650.0]
+
+        # median_plane_doas = np.zeros([start_times_ms, num_doas, num_doas])
+        # transverse_plane_doas = np.zeros([start_times_ms, num_doas, num_doas])
+        # lateral_plane_doas = np.zeros([start_times_ms, num_doas, num_doas])
+
+        for time_index, start_ms in enumerate(start_times_ms):
+            planes = ["median", "transverse", "lateral"]
+
+            for plane_index, plane in enumerate(planes):
+                doas, _ = getAsymmetryScoreForTimeRegion(first_order_rir,
+                                                         sample_rate,
+                                                         start_ms,
+                                                         300,
+                                                         True,
+                                                         show_plots,
+                                                         plane,
+                                                         num_plot_angles)
+
+                all_doas[octave_band_index, plane_index, time_index, :] = doas - np.max(doas)
+
+    if show_plots:
+        plt.title("Median Plane Radius (dB)")
+        plt.imshow(all_doas[3, 0, :, :].transpose(), aspect='auto')
+        # plt.yticks(range(num_doas), octave_band_centres)
+        plt.ylabel("Angle")
+        plt.xticks(range(num_times), np.round(start_times_ms, 0))
+        plt.xlabel("Time Bin Start (ms)")
+        plt.colorbar()
+        # plt.clim(0.75, 0.925)
+        plt.show()
+
+    return np.log10(np.std(all_doas[1, 0, 2, :]) + np.std(all_doas[2, 0, 2, :]) + np.std(all_doas[3, 0, 2, :]) + np.std(all_doas[4, 0, 2, :]))
 
 def getOffCentreRatio(radii_dB, angles_rad):
     # Convert radii (linear) and angles (rad) into cartesian coords, find geometric mean, convert back to polar
@@ -233,7 +241,7 @@ def getAngleWeighting(angle_rad_unwrapped):
 
 
 # Determine how much the late energy is weighted towards one direction, and score more highly for angle regions defined by getAngleWeighting()
-def getAsymmetryScoreForTimeRegion(spatial_rir, sample_rate, start_ms, duration_ms, start_is_relative_to_direct=True, show_plots=True, plane="median"):
+def getAsymmetryScoreForTimeRegion(spatial_rir, sample_rate, start_ms, duration_ms, start_is_relative_to_direct=True, show_plots=True, plane="median", num_plot_angles=100):
     # Get DOA angles and radii for time region
     angles_rad, radii_dB = getSpatioTemporalMap(spatial_rir,
                                                 sample_rate,
@@ -241,7 +249,7 @@ def getAsymmetryScoreForTimeRegion(spatial_rir, sample_rate, start_ms, duration_
                                                 duration_ms=duration_ms,
                                                 start_is_relative_to_direct=start_is_relative_to_direct,
                                                 plane=plane,
-                                                num_plot_angles=100)
+                                                num_plot_angles=num_plot_angles)
 
     # Normalise radii to 0 dBFS
     max_dB = np.max(radii_dB)
@@ -255,19 +263,19 @@ def getAsymmetryScoreForTimeRegion(spatial_rir, sample_rate, start_ms, duration_
 
     # Spatial score is how off-centre the late energy is, where narrow responses contribute to a higher score
     # Late energy that is one-sided and lateral will increase the score
-    spatial_score = narrowness #+ angle_weighting
+    spatial_score = radii_dB, angles_rad#narrowness
 
-    if show_plots:
-        fig, axes = plt.subplots(subplot_kw={'projection': 'polar'})
-        # axes.set_ylim([min_normalised_dB - 5, 0])
-        # plt.plot([direct_angle_rad, direct_angle_rad], [-5, 0], color="blue", alpha=1, label="Direct")
-        plt.plot([angle_of_mean_rad, angle_of_mean_rad], [-5, 0], color="black", alpha=1, label="Late")
-        plt.fill(angles_rad, radii_dBFS, color="black", alpha=0.3, label=f"Late ({np.round(start_ms)}-{np.round(start_ms + duration_ms)} ms)")
-        plt.scatter(angle_of_mean_rad, off_centre_ratio_dB, label="Mean of Late")
-        axes.set_axisbelow(True)
-        # plt.legend(loc='best')
-        plt.suptitle(f"Spatial Asymmetry Score = {np.round(spatial_score, 2)}")
-        plt.show()
+    # if show_plots:
+    #     fig, axes = plt.subplots(subplot_kw={'projection': 'polar'})
+    #     # axes.set_ylim([min_normalised_dB - 5, 0])
+    #     # plt.plot([direct_angle_rad, direct_angle_rad], [-5, 0], color="blue", alpha=1, label="Direct")
+    #     plt.plot([angle_of_mean_rad, angle_of_mean_rad], [-5, 0], color="black", alpha=1, label="Late")
+    #     plt.fill(angles_rad, radii_dBFS, color="black", alpha=0.3, label=f"Late ({np.round(start_ms)}-{np.round(start_ms + duration_ms)} ms)")
+    #     plt.scatter(angle_of_mean_rad, off_centre_ratio_dB, label="Mean of Late")
+    #     axes.set_axisbelow(True)
+    #     # plt.legend(loc='best')
+    #     plt.suptitle(f"Spatial Asymmetry Score = {np.round(spatial_score, 2)}")
+    #     plt.show()
 
     return spatial_score
 
@@ -282,6 +290,6 @@ def zeroPadOrTruncateToDuration(spatial_rir, sample_rate, duration_after_direct_
 
     for channel_index in range(4):
         num_samples_to_insert = np.min([len(spatial_rir[:, 0]), overall_length_samples])
-        resized_first_order_rir[:, channel_index] = spatial_rir[:num_samples_to_insert, channel_index]
+        resized_first_order_rir[:num_samples_to_insert, channel_index] = spatial_rir[:num_samples_to_insert, channel_index]
 
     return resized_first_order_rir
