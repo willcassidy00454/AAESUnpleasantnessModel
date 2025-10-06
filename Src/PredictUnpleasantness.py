@@ -177,6 +177,6 @@ if __name__ == "__main__":
     # SDM.getSpatialAsymmetryScore(spatial_rir, sample_rate, True)
 
     # evaluateFeature("Colouration")
-    evaluateFeature("Asymmetry", True)
+    evaluateFeature("Asymmetry", False)
     # evaluateFeature("Flutter")
     # evaluateFeature("Spectral")
