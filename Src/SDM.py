@@ -155,7 +155,7 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
         octave_band_signals, octave_band_centres = Utils.getOctaveBandsFromIR(spatial_rir[:, channel_index], sample_rate)
         spatial_rir_octave_bands[:, :, channel_index] = octave_band_signals.transpose()
 
-    num_plot_angles = 20
+    num_plot_angles = 10
     num_times = 4
 
     all_doas = np.zeros([num_octave_bands, 3, num_times, num_plot_angles])
@@ -165,14 +165,14 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
         # Get EDC of omni component
         edc_dB, edc_times = Energy.getEDC(spatial_rir_octave_bands[octave_band_index, :, 0], sample_rate)
 
-        rir_duration_ms = edc_times[Utils.findIndexOfClosest(edc_dB, -40)] * 1000
+        rir_duration_ms = edc_times[Utils.findIndexOfClosest(edc_dB, -60)] * 1000
         # rir_duration_ms = 550
         first_order_rir = zeroPadOrTruncateToDuration(spatial_rir_octave_bands[octave_band_index, :, :], sample_rate, rir_duration_ms)
 
-        start_times_ms = [edc_times[Utils.findIndexOfClosest(edc_dB, -20)] * 1000,
-                          edc_times[Utils.findIndexOfClosest(edc_dB, -25)] * 1000,
+        start_times_ms = [edc_times[Utils.findIndexOfClosest(edc_dB, -25)] * 1000,
                           edc_times[Utils.findIndexOfClosest(edc_dB, -30)] * 1000,
-                          edc_times[Utils.findIndexOfClosest(edc_dB, -35)] * 1000]
+                          edc_times[Utils.findIndexOfClosest(edc_dB, -35)] * 1000,
+                          edc_times[Utils.findIndexOfClosest(edc_dB, -40)] * 1000]
         # start_times_ms = [50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 550.0, 600.0, 650.0]
 
         # median_plane_doas = np.zeros([start_times_ms, num_doas, num_doas])
@@ -200,14 +200,14 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
         plt.title("Median Plane Radius (dB)")
         plt.imshow(all_doas[3, 0, :, :].transpose(), aspect='auto')
         # plt.yticks(range(num_doas), octave_band_centres)
-        plt.ylabel("Angle")
+        plt.ylabel("Angle Index")
         plt.xticks(range(num_times), np.round(start_times_ms, 0))
         plt.xlabel("Time Bin Start (ms)")
         plt.colorbar()
-        # plt.clim(0.75, 0.925)
+        plt.clim(-22.5, 0)
         plt.show()
 
-    return -np.sum(circular_stds[1:4, 0, 1:3])#np.log10(np.std(all_doas[1, 0, 2, :]) + np.std(all_doas[2, 0, 2, :]) + np.std(all_doas[3, 0, 2, :]) + np.std(all_doas[4, 0, 2, :]))
+    return -np.sum(circular_stds[:, 0, :])#np.log10(np.std(all_doas[1, 0, 2, :]) + np.std(all_doas[2, 0, 2, :]) + np.std(all_doas[3, 0, 2, :]) + np.std(all_doas[4, 0, 2, :]))
 
 def getOffCentreRatio(radii_dB, angles_rad):
     # Convert radii (linear) and angles (rad) into cartesian coords, find geometric mean, convert back to polar

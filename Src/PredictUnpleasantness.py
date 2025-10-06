@@ -15,7 +15,7 @@ from os.path import isfile
 # Reads the RIR files in folder "Labelled {feature}", the names of which are ranked from 0-10
 # (e.g. "0.wav", "0_1.wav", "1.wav"), and compares these to the feature outputs for the RIRs.
 # feature = "Colouration" | "Spatial Asymmetry" | "Flutter Echo"
-def evaluateFeature(feature="Colouration"):
+def evaluateFeature(feature="Colouration", show_stimulus_ids=False):
     feature_rirs_dir = f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/{feature}/"
     stimulus_filenames = [filename for filename in listdir(feature_rirs_dir) if isfile(feature_rirs_dir + filename) and filename.endswith("wav")]
 
@@ -85,8 +85,9 @@ def evaluateFeature(feature="Colouration"):
     plt.ylabel(f"{feature} Feature Score")
     plt.title(f"{feature} (R-squared = {round(r_value ** 2, 2)}, Spear. Corr. = {round(spearman_correlation, 2)})")
 
-    for i in range(15):
-        plt.annotate(str(i + 1), (mean_results[i], feature_outputs[i]))
+    if show_stimulus_ids:
+        for i in range(15):
+            plt.annotate(str(i + 1), (mean_results[i], feature_outputs[i]))
 
     plt.show()
 
@@ -104,19 +105,19 @@ def predictUnpleasantnessFromRIR(rir_filepath):
 
 def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, curvature_score, spectral_score, prog_item):
     if prog_item == 1:
-        y_intercept = 53.890
-        colouration_gradient = -17.484
-        flutter_gradient = -30.633
-        asymmetry_gradient = -2.002
-        curvature_gradient = 28.204
-        spectral_gradient = -1.281
+        y_intercept = 40.598
+        colouration_gradient = -19.624
+        flutter_gradient = -27.816
+        asymmetry_gradient = -0.709
+        curvature_gradient = 29.013
+        spectral_gradient = -1.100
     elif prog_item == 2:
-        y_intercept = 69.730
-        colouration_gradient = -33.181
-        flutter_gradient = 35.512
-        asymmetry_gradient = -1.467
-        curvature_gradient = 16.917
-        spectral_gradient = 1.038
+        y_intercept = 88.600
+        colouration_gradient = -36.929
+        flutter_gradient = 30.459
+        asymmetry_gradient = -0.015
+        curvature_gradient = 19.990
+        spectral_gradient = 0.959
     else:
         assert False
 
@@ -157,7 +158,7 @@ if __name__ == "__main__":
     # filename = "DullLate.wav"
 
     # Spatial RIRs
-    filename = "Asymmetry/11.wav"
+    filename = "Asymmetry/1.wav"
 
     # Passive Rooms
     # filename = "Passive11.wav"
@@ -176,6 +177,6 @@ if __name__ == "__main__":
     # SDM.getSpatialAsymmetryScore(spatial_rir, sample_rate, True)
 
     # evaluateFeature("Colouration")
-    evaluateFeature("Asymmetry")
+    evaluateFeature("Asymmetry", True)
     # evaluateFeature("Flutter")
     # evaluateFeature("Spectral")
