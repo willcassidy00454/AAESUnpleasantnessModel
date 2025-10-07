@@ -41,7 +41,7 @@ def getCurvature(rir, sample_rate, should_high_pass=True, show_plots=False):
     early_gradient = (early_end_dB - early_start_dB) / (early_end_time - early_start_time)
     late_gradient = (late_end_dB - late_start_dB) / (late_end_time - late_start_time)
 
-    curvature = (late_gradient / early_gradient) - 1.0
+    curvature = 1.0 - (late_gradient / early_gradient)
 
     if show_plots:
         showPlots(edc_dB,
