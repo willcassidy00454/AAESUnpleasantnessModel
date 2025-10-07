@@ -207,7 +207,11 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
         plt.clim(-22.5, 0)
         plt.show()
 
-    return -np.sum(circular_stds[:, 0, :])#np.log10(np.std(all_doas[1, 0, 2, :]) + np.std(all_doas[2, 0, 2, :]) + np.std(all_doas[3, 0, 2, :]) + np.std(all_doas[4, 0, 2, :]))
+    asymmetry_score = -np.sum(circular_stds[:, 0, :])
+
+    asymmetry_score = (asymmetry_score + 65) / 30
+
+    return asymmetry_score
 
 def getOffCentreRatio(radii_dB, angles_rad):
     # Convert radii (linear) and angles (rad) into cartesian coords, find geometric mean, convert back to polar

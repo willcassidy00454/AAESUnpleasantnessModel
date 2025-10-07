@@ -62,6 +62,8 @@ def getFlutterEchoScore(rir, sample_rate, should_show_plots=False):
     # Find max magnitude of energy oscillations between 0-20 Hz minus the mean and standard deviation
     flutter_echo_score = 1.0 - (np.max(energy_spectrum_dB) - np.mean(energy_spectrum_dB) - np.std(energy_spectrum_dB))
 
+    flutter_echo_score = (flutter_echo_score + 0.05) * 1.6
+
     if should_show_plots:
         showEnergySpectrumPlots(energy_spectrum_dB, energy_spectrum_freqs[energy_frequency_index_range], flutter_echo_score)
 

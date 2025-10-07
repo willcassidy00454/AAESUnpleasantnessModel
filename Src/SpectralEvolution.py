@@ -90,6 +90,8 @@ def getSpectralEvolutionScore(rir, sample_rate, should_show_plots=False):
     # Either sum scores or return all as list
     spectral_evolution_score = late_energy - early_energy
 
+    spectral_evolution_score = (spectral_evolution_score + 12) / 14
+
     if should_show_plots:
         showPlots(early_mag_spectrum_log_smoothed, late_mag_spectrum_log_smoothed, early_frequencies, early_energy, late_energy, spectral_evolution_score)
 
