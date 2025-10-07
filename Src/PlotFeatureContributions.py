@@ -2,9 +2,9 @@ import matplotlib.pyplot as plt
 
 
 if __name__ == "__main__":
-    features = ["Colour.", "Flut.", "Asym.", "Curv.", "Damp."]
-    contributions = [[0.327, 0.267, 0.245, -0.386, 0.196],
-                     [0.554, -0.263, 0.005, -0.239, -0.154]]
+    features = ["Colour.", "Flutter", "Asym.", "Curv.", "Damp."]
+    contributions = [[0.327, 0.267, 0.245, 0.386, 0.196],
+                     [0.554, -0.263, 0.005, 0.239, -0.154]]
 
     significances = [["***", "***", "***", "***", "**"],
                      ["***", "***", "", "***", "*"]]
@@ -19,8 +19,8 @@ if __name__ == "__main__":
         axes[plot_index].bar_label(p, labels=significances[plot_index], label_type='edge')
         axes[plot_index].set_title("Saxophone" if plot_index else "Clapping")
         axes[plot_index].grid(zorder=0, axis="y")
-        axes[plot_index].set_ylim([-0.6, 0.6])
-        axes[plot_index].set_yticks([-0.5, -0.25, 0.0, 0.25, 0.5])
-        axes[plot_index].set_yticklabels(["-50 %", "-25 %", "0 %", "25 %", "50 %"])
+        axes[plot_index].set_ylim([-0.35, 0.65])
+        axes[plot_index].set_yticks([-0.25, 0.0, 0.25, 0.5])
+        axes[plot_index].set_yticklabels(["-25 %", "0 %", "25 %", "50 %"])
 
     plt.show()

@@ -79,11 +79,15 @@ def evaluateFeature(feature="Colouration", show_stimulus_ids=False):
         "font.family": "CMU Serif",
         "font.size": 15
     })
-    plt.plot(mean_results, feature_outputs, 'o', mean_results, linear_regression(mean_results))
+    plt.plot(mean_results, feature_outputs, 'o')
+    plt.plot([0, 100], linear_regression([0, 100]))
+    plt.plot([0, 100], [0, 1], linestyle='--', color='black', linewidth=0.5)
     # plt.plot(all_results, repeated_feature_outputs, 'o', all_results, linear_regression(all_results))
-    plt.xlabel(f"Ranked {feature}")
-    plt.ylabel(f"{feature} Feature Score")
-    plt.title(f"{feature} (R-squared = {round(r_value ** 2, 2)}, Spear. Corr. = {round(spearman_correlation, 2)})")
+    plt.xlabel(f"True Rating")
+    plt.ylabel(f"Predicted")
+    plt.xlim([0, 100])
+    plt.ylim([0, 1])
+    plt.title(f"{feature} ($R^2$ = {round(r_value ** 2, 2)}, Spearman's = {round(spearman_correlation, 2)})")
 
     if show_stimulus_ids:
         for i in range(15):
@@ -105,19 +109,19 @@ def predictUnpleasantnessFromRIR(rir_filepath):
 
 def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, curvature_score, spectral_score, prog_item):
     if prog_item == 1:
-        y_intercept = 40.598
-        colouration_gradient = -19.624
-        flutter_gradient = -27.816
-        asymmetry_gradient = -0.709
+        y_intercept = -1.298
+        colouration_gradient = 24.531
+        flutter_gradient = 17.385
+        asymmetry_gradient = 21.282
         curvature_gradient = 29.013
-        spectral_gradient = -1.100
+        spectral_gradient = 15.399
     elif prog_item == 2:
-        y_intercept = 88.600
-        colouration_gradient = -36.929
-        flutter_gradient = 30.459
-        asymmetry_gradient = -0.015
+        y_intercept = 23.433
+        colouration_gradient = 46.161
+        flutter_gradient = -19.037
+        asymmetry_gradient = 0.462
         curvature_gradient = 19.990
-        spectral_gradient = 0.959
+        spectral_gradient = -13.428
     else:
         assert False
 
@@ -158,10 +162,10 @@ if __name__ == "__main__":
     # filename = "DullLate.wav"
 
     # Spatial RIRs
-    filename = "Asymmetry/1.wav"
+    # filename = "Asymmetry/1.wav"
 
     # Passive Rooms
-    # filename = "Passive11.wav"
+    filename = "Passive11.wav"
     # filename = "Room3.wav"
     # filename = "PassiveRoom.wav"
     # filename = "Pilsen.wav"
@@ -174,9 +178,9 @@ if __name__ == "__main__":
     # filename = "Stimulus101.wav"
 
     sample_rate, spatial_rir = wavfile.read(f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/{filename}")
-    # SDM.getSpatialAsymmetryScore(spatial_rir, sample_rate, True)
+    # print(DSE.getCurvature(spatial_rir[:, 0], sample_rate))
 
-    # evaluateFeature("Colouration")
-    evaluateFeature("Asymmetry", False)
-    # evaluateFeature("Flutter")
-    # evaluateFeature("Spectral")
+    evaluateFeature("Colouration")
+    evaluateFeature("Asymmetry")
+    evaluateFeature("Flutter")
+    evaluateFeature("Spectral")
