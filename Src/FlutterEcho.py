@@ -45,14 +45,14 @@ def getScoreSingleChannel(rir, sample_rate, should_show_plots=False):
     etc_dB_trunc = etc_dB[:Utils.findIndexOfClosest(etc_dB, -40.0)]
 
     # Get energy spectrum (FFT of energy time curve in decibels)
-    fft_size = 2 ** 9
+    fft_size = 2 ** 10
     energy_spectrum_dB = np.log10(np.abs(np.fft.rfft(etc_dB_trunc, n=fft_size)))
 
     # Truncate energy spectrum between 0-30 Hz
     energy_spectrum_freqs = np.fft.rfftfreq(fft_size, etc_window_duration_ms / 1000.0)
     energy_frequency_index_range = Utils.getFrequencyIndexRange(energy_spectrum_freqs,
                                                                 0.0,
-                                                                30.0,
+                                                                20.0,
                                                                 sample_rate=1.0 / (etc_window_duration_ms / 1000.0))
     energy_spectrum_dB = energy_spectrum_dB[energy_frequency_index_range]
 
