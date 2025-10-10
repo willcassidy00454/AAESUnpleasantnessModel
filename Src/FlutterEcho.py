@@ -68,6 +68,8 @@ def getScoreSingleChannel(rir, sample_rate, should_show_plots=False):
 
 
 def getFlutterEchoScore(spatial_rir, sample_rate, should_show_plots=False):
+    # Compute flutter score for the first four spatial RIR channels
     scores = [getScoreSingleChannel(spatial_rir[:, channel], sample_rate, should_show_plots) for channel in range(4)]
 
+    # Output summation of the channel scores
     return (np.sum(scores) - 1.1) / 1.7
