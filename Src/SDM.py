@@ -109,7 +109,7 @@ def getSpatioTemporalMap(spatial_ir,
     # radii_smoothed = savgol_filter(radii_to_smooth, window_length, 1)
     # radii_smoothed = radii_smoothed[window_length:-window_length]
 
-    # Convert energy radius to decibels, clipping at -60 dB
+    # Convert energy radius to decibels, clipping at -80 dB
     radii_dB = 10 * np.log10(np.clip(radii, 1e-8, None))
 
     # Mirror along the x-axis to match Treble presentation
@@ -161,19 +161,20 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
     all_doas = np.zeros([num_octave_bands, 3, num_times, num_plot_angles])
     circular_stds = np.zeros([num_octave_bands, 3, num_times])
 
+    # energy_start_points = np.arange(0, -50, -50.0/num_times)
+    start_energies = [-25, -30, -35, -40] # dB
+
     for octave_band_index in range(num_octave_bands):
+        first_order_rir = spatial_rir_octave_bands[octave_band_index, :, :]
+
         # Get EDC of omni component
-        edc_dB, edc_times = Energy.getEDC(spatial_rir_octave_bands[octave_band_index, :, 0], sample_rate)
+        edc_dB, edc_times = Energy.getEDC(first_order_rir[:, 0], sample_rate)
 
-        rir_duration_ms = edc_times[Utils.findIndexOfClosest(edc_dB, -60)] * 1000
+        # rir_duration_ms = edc_times[Utils.findIndexOfClosest(edc_dB, -60)] * 1000
         # rir_duration_ms = 550
-        first_order_rir = zeroPadOrTruncateToDuration(spatial_rir_octave_bands[octave_band_index, :, :], sample_rate, rir_duration_ms)
+        # first_order_rir = zeroPadOrTruncateToDuration(spatial_rir_octave_bands[octave_band_index, :, :], sample_rate, rir_duration_ms)
 
-        start_times_ms = [edc_times[Utils.findIndexOfClosest(edc_dB, -25)] * 1000,
-                          edc_times[Utils.findIndexOfClosest(edc_dB, -30)] * 1000,
-                          edc_times[Utils.findIndexOfClosest(edc_dB, -35)] * 1000,
-                          edc_times[Utils.findIndexOfClosest(edc_dB, -40)] * 1000]
-        # start_times_ms = [50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0, 400.0, 450.0, 500.0, 550.0, 600.0, 650.0]
+        start_times_ms = [edc_times[Utils.findIndexOfClosest(edc_dB, start_energy)] * 1000 for start_energy in start_energies]
 
         # median_plane_doas = np.zeros([start_times_ms, num_doas, num_doas])
         # transverse_plane_doas = np.zeros([start_times_ms, num_doas, num_doas])
@@ -187,7 +188,7 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
                                                                        sample_rate,
                                                                        start_ms,
                                                                        300,
-                                                                       True,
+                                                                       False,
                                                                        show_plots,
                                                                        plane,
                                                                        num_plot_angles)
@@ -197,14 +198,22 @@ def getSpatialAsymmetryScore(spatial_rir, sample_rate, show_plots=False):
                 circular_stds[octave_band_index, plane_index, time_index] = Utils.circularStd(10 ** (doa_radii / 10), doa_angles)
 
     if show_plots:
-        plt.title("Median Plane Radius (dB)")
+        fig = plt.figure()
+        plt.rcParams.update({
+            "text.usetex": True,
+            "font.family": "CMU Serif",
+            "font.size": 15
+        })
+        # plt.title("Median Plane Radius (dB)")
         plt.imshow(all_doas[3, 0, :, :].transpose(), aspect='auto')
         # plt.yticks(range(num_doas), octave_band_centres)
-        plt.ylabel("Angle Index")
-        plt.xticks(range(num_times), np.round(start_times_ms, 0))
-        plt.xlabel("Time Bin Start (ms)")
-        plt.colorbar()
-        plt.clim(-22.5, 0)
+        plt.ylabel("Angle")
+        plt.yticks([0, (num_plot_angles - 1)/4, (num_plot_angles - 1)/2, 3 * (num_plot_angles - 1) / 4, (num_plot_angles - 1)], ["0","$\pi/2$","$\pi$","$3\pi/2$","$2\pi$"])
+        plt.xticks([0,num_times/5,2*num_times/5,3*num_times/5,4*num_times/5,num_times], ["0","-10","-20","-30","-40","-50"])
+        plt.xlabel("Energy Bin Start (dB)")
+        plt.colorbar(location="top")
+        plt.clim(-22, 0)
+        fig.set_size_inches(5, 5.2)
         plt.show()
 
     asymmetry_score = -np.sum(circular_stds[:, 0, :])
