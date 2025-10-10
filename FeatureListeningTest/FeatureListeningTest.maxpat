@@ -10,7 +10,7 @@
 		}
 ,
 		"classnamespace" : "box",
-		"rect" : [ 177.0, -993.0, 1385.0, 874.0 ],
+		"rect" : [ 177.0, 100.0, 1385.0, 874.0 ],
 		"bglocked" : 0,
 		"openinpresentation" : 0,
 		"default_fontsize" : 12.0,
@@ -700,8 +700,8 @@
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 837.0, 43.0, 231.0, 22.0 ],
-					"text" : "Spectral/ Colouration/ Asymmetry/ Flutter/"
+					"patching_rect" : [ 837.0, 43.0, 251.0, 22.0 ],
+					"text" : "HFDamping/ Colouration/ Asymmetry/ Flutter/"
 				}
 
 			}
@@ -932,8 +932,8 @@
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 654.0, 584.0, 618.0, 62.0 ],
-					"text" : "/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/spectral_results.csv /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/colouration_results.csv /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/asymmetry_results.csv /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/flutter_results.csv"
+					"patching_rect" : [ 654.0, 584.0, 620.0, 62.0 ],
+					"text" : "/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/hfdamping_results.csv /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/colouration_results.csv /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/asymmetry_results.csv /Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/FeatureListeningTest/flutter_results.csv"
 				}
 
 			}

@@ -5,7 +5,7 @@ import numpy as np
 from scipy import stats
 import SDM
 import DSE
-import SpectralEvolution
+import HFDamping
 from scipy import signal
 import matplotlib.pyplot as plt
 from os import listdir
@@ -57,9 +57,9 @@ def evaluateFeature(feature="Colouration", show_stimulus_ids=False):
         elif feature == "Asymmetry":
             feature_outputs[file_index] = SDM.getSpatialAsymmetryScore(spatial_rir, sample_rate, False)
         elif feature == "Flutter":
-            feature_outputs[file_index] = FlutterEcho.getFlutterEchoScore(spatial_rir[:, 0], sample_rate, False)
-        elif feature == "Spectral":
-            feature_outputs[file_index] = SpectralEvolution.getSpectralEvolutionScore(spatial_rir[:, 0], sample_rate, False)
+            feature_outputs[file_index] = FlutterEcho.getFlutterEchoScore(spatial_rir, sample_rate, False)
+        elif feature == "HFDamping":
+            feature_outputs[file_index] = HFDamping.getHFDampingScore(spatial_rir[:, 0], sample_rate, False)
         else:
             assert False
 
@@ -81,7 +81,7 @@ def evaluateFeature(feature="Colouration", show_stimulus_ids=False):
     })
     plt.plot(mean_results, feature_outputs, 'o')
     plt.plot([0, 100], linear_regression([0, 100]))
-    plt.plot([0, 100], [0, 1], linestyle='--', color='black', linewidth=0.5)
+    # plt.plot([0, 100], [0, 1], linestyle='--', color='black', linewidth=0.5, dashes=(10,5))
     # plt.plot(all_results, repeated_feature_outputs, 'o', all_results, linear_regression(all_results))
     plt.xlabel(f"True Rating")
     plt.ylabel(f"Predicted")
@@ -107,43 +107,40 @@ def predictUnpleasantnessFromRIR(rir_filepath):
     return predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score)
 
 
-def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, curvature_score, spectral_score, prog_item):
+def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, curvature_score, spectral_score, prog_item, k_fold_index=-1):
+    # First three values are from the respective k-fold
     if prog_item == 1:
-        y_intercept = -1.298
-        colouration_gradient = 24.531
-        flutter_gradient = 17.385
-        asymmetry_gradient = 21.282
-        curvature_gradient = 29.013
-        spectral_gradient = 15.399
+        y_intercept = [-0.452, 6.444, 6.894]
+        colouration_gradient = [31.397, 41.987, 24.730]
+        flutter_gradient = [3.516, 1.765, 4.269]
+        asymmetry_gradient = [27.411, 11.876, 11.586]
+        curvature_gradient = [23.057, 28.884, 21.677]
+        hf_damping_gradient = [19.780, 16.983, 24.042]
     elif prog_item == 2:
-        y_intercept = 23.433
-        colouration_gradient = 46.161
-        flutter_gradient = -19.037
-        asymmetry_gradient = 0.462
-        curvature_gradient = 19.990
-        spectral_gradient = -13.428
+        y_intercept = [13.203, 18.074, 26.806]
+        colouration_gradient = [77.358, 69.356, 63.105]
+        flutter_gradient = [-2.582, -2.454, -0.936]
+        asymmetry_gradient = [-4.945, -18.728, -25.233]
+        curvature_gradient = [16.311, 40.863, 13.650]
+        hf_damping_gradient = [-14.671, -20.031, -13.803]
     else:
         assert False
 
-    linear_model = (y_intercept
-                    + colouration_gradient * colouration_score
-                    + asymmetry_gradient * asymmetry_score
-                    + flutter_gradient * flutter_echo_score
-                    + curvature_gradient * curvature_score
-                    + spectral_gradient * spectral_score)
-
-    exponent = 2
-    colouration_gradient = 1
-    flutter_gradient = 1
-    asymmetry_gradient = 1
-    curvature_gradient = 1
-    spectral_gradient = 1
-
-    minkowski_model = np.power(colouration_gradient * np.power(np.abs(colouration_score), exponent)
-                               + asymmetry_gradient * np.power(np.abs(asymmetry_score), exponent)
-                               + flutter_gradient * np.power(np.abs(flutter_echo_score), exponent)
-                               + curvature_gradient * np.power(np.abs(curvature_score), exponent)
-                               + spectral_gradient * np.power(np.abs(spectral_score), exponent), (1.0 / exponent))
+    # If k-fold is -1, take the mean coefficients from all folds
+    if k_fold_index == -1:
+        linear_model = (np.mean(y_intercept[0:3])
+                        + np.mean(colouration_gradient[0:3]) * colouration_score
+                        + np.mean(asymmetry_gradient[0:3]) * asymmetry_score
+                        + np.mean(flutter_gradient[0:3]) * flutter_echo_score
+                        + np.mean(curvature_gradient[0:3]) * curvature_score
+                        + np.mean(hf_damping_gradient[0:3]) * spectral_score)
+    else:
+        linear_model = (y_intercept[k_fold_index]
+                        + colouration_gradient[k_fold_index] * colouration_score
+                        + asymmetry_gradient[k_fold_index] * asymmetry_score
+                        + flutter_gradient[k_fold_index] * flutter_echo_score
+                        + curvature_gradient[k_fold_index] * curvature_score
+                        + hf_damping_gradient[k_fold_index] * spectral_score)
 
     return linear_model
 
@@ -153,7 +150,7 @@ if __name__ == "__main__":
     # filename = "Room3.wav" # pretty high flutter, front-back though
     # filename = "PassiveRoom.wav" # fairly high flutter, late
     # filename = "horizontal_1.wav" # near zero flutter
-    # filename = "NoiseIR_RT_1s_48k_1.wav" # zero flutter
+    filename = "NoiseIR_RT_1s_48k_1.wav" # zero flutter
     # filename = "Room33.wav"
     # filename = "SingleLSLeft.wav"
     # filename = "Wet.wav"
@@ -162,10 +159,10 @@ if __name__ == "__main__":
     # filename = "DullLate.wav"
 
     # Spatial RIRs
-    # filename = "Asymmetry/1.wav"
+    # filename = "Asymmetry/11.wav"
 
     # Passive Rooms
-    filename = "Passive11.wav"
+    # filename = "Passive11.wav"
     # filename = "Room3.wav"
     # filename = "PassiveRoom.wav"
     # filename = "Pilsen.wav"
@@ -178,9 +175,10 @@ if __name__ == "__main__":
     # filename = "Stimulus101.wav"
 
     sample_rate, spatial_rir = wavfile.read(f"/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel/Audio/{filename}")
-    # print(DSE.getCurvature(spatial_rir[:, 0], sample_rate))
+    # SDM.getSpatialAsymmetryScore(spatial_rir, sample_rate, True)
+    # FlutterEcho.getFlutterEchoScore(spatial_rir, sample_rate, True)
 
-    evaluateFeature("Colouration")
-    evaluateFeature("Asymmetry")
-    evaluateFeature("Flutter")
-    evaluateFeature("Spectral")
+    # evaluateFeature("Colouration")
+    # evaluateFeature("Asymmetry")
+    # evaluateFeature("Flutter")
+    evaluateFeature("HFDamping")

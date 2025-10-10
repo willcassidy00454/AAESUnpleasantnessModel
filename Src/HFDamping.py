@@ -28,9 +28,7 @@ def getEarlyAndLateRIR(rir, sample_rate, early_start_dB, early_end_dB, late_star
     return early_rir, late_rir
 
 
-def getSpectralEvolutionScore(rir, sample_rate, should_show_plots=False):
-    rt = RT.estimateRT(rir, sample_rate)
-
+def getHFDampingScore(rir, sample_rate, should_show_plots=False):
     # Split early and late regions of the RIR
     early_rir, late_rir = getEarlyAndLateRIR(rir, sample_rate, -1, -15, -35, -40)
 
@@ -53,46 +51,19 @@ def getSpectralEvolutionScore(rir, sample_rate, should_show_plots=False):
     early_mag_spectrum_log_smoothed = savgol_filter(early_mag_spectrum_log, window_length=smoothing_window_length_samples, polyorder=1)
     late_mag_spectrum_log_smoothed = savgol_filter(late_mag_spectrum_log, window_length=smoothing_window_length_samples, polyorder=1)
 
-    # Normalise both spectra so they overlap (compensate for the overall decay in level, maybe use the RT and the time that has passed?)    early_max =
+    # Normalise both spectra so they overlap (compensate for the overall decay in level)
     early_mag_spectrum_log_smoothed -= np.max(early_mag_spectrum_log_smoothed)
     late_mag_spectrum_log_smoothed -= np.max(late_mag_spectrum_log_smoothed)
 
-    # Compare energy of early and late magnitudes
-    early_energy = np.mean(early_mag_spectrum_log_smoothed)
-    late_energy = np.mean(late_mag_spectrum_log_smoothed)
+    # Get mean early and late magnitudes
+    early_mean = np.mean(early_mag_spectrum_log_smoothed)
+    late_mean = np.mean(late_mag_spectrum_log_smoothed)
 
-    # # For each octave band, compute delta magnitude
-    # deltas = late_mag_spectrum_log_smoothed - early_mag_spectrum_log_smoothed
-    #
-    # num_deltas = 10
-    # deltas_downsampled = np.zeros([num_deltas, 2]) # [deltas, frequencies]
-    # step = int(np.ceil(len(deltas) / num_deltas))
-    #
-    # for delta_index, sample_index in enumerate(range(0, len(deltas), step)):
-    #     mean_delta = np.mean(deltas[sample_index:sample_index + step])
-    #     deltas_downsampled[delta_index] = mean_delta, early_frequencies[sample_index]
-    #
-    # deltas_downsampled[:, 0] -= np.max(deltas_downsampled[:, 0])
-
-    # Subtract deltas corresponding to a natural-sounding room
-    # natural_deltas = [0.0,
-    #                   -2.697296905008632,
-    #                   -4.994258825874791,
-    #                   -6.3869112057548305,
-    #                   -6.639972913380748,
-    #                   -6.706402403095581,
-    #                   -7.304174210500316,
-    #                   -9.432400673240224,
-    #                   -10.769930530190639,
-    #                   -12.260740071765039]
-    # deltas_downsampled[:, 0] -= natural_deltas
-
-    # Either sum scores or return all as list
-    spectral_evolution_score = late_energy - early_energy
-
-    spectral_evolution_score = (spectral_evolution_score + 24) / 28
+    # Return (late - early) transformed to 0.2-0.8
+    hf_damping_score = late_mean - early_mean
+    hf_damping_score = (hf_damping_score + 24) / 28
 
     if should_show_plots:
-        showPlots(early_mag_spectrum_log_smoothed, late_mag_spectrum_log_smoothed, early_frequencies, early_energy, late_energy, spectral_evolution_score)
+        showPlots(early_mag_spectrum_log_smoothed, late_mag_spectrum_log_smoothed, early_frequencies, early_mean, late_mean, hf_damping_score)
 
-    return spectral_evolution_score
+    return hf_damping_score
