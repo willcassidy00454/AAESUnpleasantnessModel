@@ -28,18 +28,16 @@ def showPlots(rir, colouration_score, mag_spectrum_log_trunc, mag_spectrum_smoot
 def getColouration(rir, sample_rate, should_show_plots=False):
     rir_num_samples = len(rir)
 
-    # Estimate RT from -5 dB to -40 dB ensuring -40 dB occurs at least 10 dB above noise floor
-    # # # (not currently done) (modification; previously -15 to -35 dB)
-    rt = RT.estimateRT(rir, sample_rate, start_dB=-5, end_dB=-40)
+    # Estimate T30 from -5 dB to -35 dB
+    rt = RT.estimateRT(rir, sample_rate, start_dB=-5, end_dB=-35)
 
-    # Window the RIR between the 0 dB and -40 dB times (modification; assert the start should be after the mixing time,
-    # previously -15 to -35 dB)
+    # Window the RIR between the 0 dB and -40 dB times
     edc_dB, time_values = Energy.getEDC(rir, sample_rate)
-    minus_15_position_samples = Utils.findIndexOfClosest(edc_dB, 0)
-    minus_35_position_samples = Utils.findIndexOfClosest(edc_dB, -40)
+    trunc_start_samples = Utils.findIndexOfClosest(edc_dB, 0)
+    trunc_end_samples = Utils.findIndexOfClosest(edc_dB, -40)
 
     rir_sample_indices = range(rir_num_samples)
-    rir_sample_indices_windowed = rir_sample_indices[minus_15_position_samples:minus_35_position_samples]
+    rir_sample_indices_windowed = rir_sample_indices[trunc_start_samples:trunc_end_samples]
 
     # Compensate for IR decay shape (multiply IR by exp(6.91 * t / RT))
     sampling_period = 1.0 / sample_rate
@@ -59,7 +57,7 @@ def getColouration(rir, sample_rate, should_show_plots=False):
     mag_spectrum_log_trunc_linear, mag_spectrum_freqs = Utils.linearToLog(mag_spectrum, sample_rate, lower_frequency_limit, upper_frequency_limit)
 
     # Convert magnitude to decibels (modification)
-    mag_spectrum_log_trunc_dB = 10 * np.log10(mag_spectrum_log_trunc_linear)
+    mag_spectrum_log_trunc_dB = 20 * np.log10(mag_spectrum_log_trunc_linear)
 
     # Get smoothed spectrum, mirroring start and ends for one window length to avoid edge effects
     num_octaves = np.log10(mag_spectrum_freqs[-1] / mag_spectrum_freqs[0]) / np.log10(2)
@@ -76,7 +74,7 @@ def getColouration(rir, sample_rate, should_show_plots=False):
 
     # Apply equal-loudness contour
     mag_minus_mean_equal_loud_dB = Utils.applyEqualLoudnessContour(mag_minus_mean_dB, mag_spectrum_freqs)
-    mag_minus_mean_equal_loud_linear = 10 ** (mag_minus_mean_equal_loud_dB / 10)
+    mag_minus_mean_equal_loud_linear = 10 ** (mag_minus_mean_equal_loud_dB / 20)
 
     # Clip below 0 to remove notch effects due to dB scale (modification)
     # mag_minus_mean_equal_loud_dB = np.clip(mag_minus_mean_equal_loud_dB, 0, None)
@@ -88,7 +86,7 @@ def getColouration(rir, sample_rate, should_show_plots=False):
     colouration_score = std_dev_linear * peakedness
 
     # Scale to approximately 0-1 (modification)
-    colouration_score = (colouration_score - 0.15) / 0.25
+    colouration_score = (colouration_score - 0.3) / 0.55
 
     if should_show_plots:
         showPlots(rir,
