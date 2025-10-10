@@ -30,8 +30,7 @@ def showACFPlots(num_octave_bands, auto_correlations, sample_rate, octave_band_c
 
     plt.show()
 
-
-def getFlutterEchoScore(rir, sample_rate, should_show_plots=False):
+def getScoreSingleChannel(rir, sample_rate, should_show_plots=False):
     # High-pass RIR from 1 kHz
     filter_order = 4
     cutoff_Hz = 1000.0
@@ -42,29 +41,33 @@ def getFlutterEchoScore(rir, sample_rate, should_show_plots=False):
     etc_window_duration_ms = 2.0
     etc_dB, _ = Energy.getEnergyTimeCurve(rir_high_passed, sample_rate, etc_window_duration_ms)
 
-    # # # # Try to find the noise floor and analyse up to that point plus a margin (then maybe use this for the other features too)
-
-    # Truncate after -60 dB
-    etc_dB_trunc = etc_dB[:Utils.findIndexOfClosest(etc_dB, -60.0)]
+    # Truncate after -40 dB
+    etc_dB_trunc = etc_dB[:Utils.findIndexOfClosest(etc_dB, -40.0)]
 
     # Get energy spectrum (FFT of energy time curve in decibels)
-    fft_size = 2 ** 10
+    fft_size = 2 ** 9
     energy_spectrum_dB = np.log10(np.abs(np.fft.rfft(etc_dB_trunc, n=fft_size)))
 
-    # Truncate energy spectrum between 0-20 Hz
+    # Truncate energy spectrum between 0-30 Hz
     energy_spectrum_freqs = np.fft.rfftfreq(fft_size, etc_window_duration_ms / 1000.0)
     energy_frequency_index_range = Utils.getFrequencyIndexRange(energy_spectrum_freqs,
-                                             0.0,
-                                            20.0,
-                                                         sample_rate=1.0 / (etc_window_duration_ms / 1000.0))
+                                                                0.0,
+                                                                30.0,
+                                                                sample_rate=1.0 / (etc_window_duration_ms / 1000.0))
     energy_spectrum_dB = energy_spectrum_dB[energy_frequency_index_range]
 
     # Find max magnitude of energy oscillations between 0-20 Hz minus the mean and standard deviation
     flutter_echo_score = 1.0 - (np.max(energy_spectrum_dB) - np.mean(energy_spectrum_dB) - np.std(energy_spectrum_dB))
 
-    flutter_echo_score = (flutter_echo_score + 0.05) * 1.6
-
     if should_show_plots:
-        showEnergySpectrumPlots(energy_spectrum_dB, energy_spectrum_freqs[energy_frequency_index_range], flutter_echo_score)
+        showEnergySpectrumPlots(energy_spectrum_dB,
+                                energy_spectrum_freqs[energy_frequency_index_range],
+                                flutter_echo_score)
 
     return flutter_echo_score
+
+
+def getFlutterEchoScore(spatial_rir, sample_rate, should_show_plots=False):
+    scores = [getScoreSingleChannel(spatial_rir[:, channel], sample_rate, should_show_plots) for channel in range(4)]
+
+    return (np.sum(scores) - 1.1) / 1.7
