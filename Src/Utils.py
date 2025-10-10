@@ -184,7 +184,7 @@ def applyEqualLoudnessContour(mag_spectrum_dB, mag_spectrum_freqs):
         10000, 12500
     ])
 
-    # Approximate equal-loudness corrections in dB at 60 phon
+    # Approximate equal-loudness corrections in dB at 60 phons
     equal_loudness_magnitudes_dB = np.array([
         78.5, 68.7, 59.5, 51.1, 44.0, 37.5, 31.5, 26.5, 22.1,
         17.9, 14.4, 11.4, 8.6, 6.2, 4.4, 3.0, 2.2, 2.4, 3.5,
