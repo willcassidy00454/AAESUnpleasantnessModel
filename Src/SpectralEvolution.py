@@ -40,8 +40,8 @@ def getSpectralEvolutionScore(rir, sample_rate, should_show_plots=False):
     late_rir = np.pad(late_rir, (0, pad_length - len(late_rir)), mode='constant')
 
     # Get magnitude spectrum of each
-    early_mag_spectrum = 10 * np.log10(np.abs(np.fft.rfft(early_rir)))
-    late_mag_spectrum = 10 * np.log10(np.abs(np.fft.rfft(late_rir)))
+    early_mag_spectrum = 20 * np.log10(np.abs(np.fft.rfft(early_rir)))
+    late_mag_spectrum = 20 * np.log10(np.abs(np.fft.rfft(late_rir)))
 
     # Convert to log frequency from cutoff to Nyquist
     cutoff = 2000
@@ -90,7 +90,7 @@ def getSpectralEvolutionScore(rir, sample_rate, should_show_plots=False):
     # Either sum scores or return all as list
     spectral_evolution_score = late_energy - early_energy
 
-    spectral_evolution_score = (spectral_evolution_score + 12) / 14
+    spectral_evolution_score = (spectral_evolution_score + 24) / 28
 
     if should_show_plots:
         showPlots(early_mag_spectrum_log_smoothed, late_mag_spectrum_log_smoothed, early_frequencies, early_energy, late_energy, spectral_evolution_score)
