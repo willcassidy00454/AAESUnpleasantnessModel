@@ -115,14 +115,14 @@ def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutte
 
     # First three values are from the respective k-fold
     if prog_item == 1:
-        y_intercept =          [-2.438, 3.375,  -7.855]
+        y_intercept =          [1.332,  4.654,  -5.124]
         colouration_gradient = [24.351, 40.638, 30.114]
         flutter_gradient =     [21.366, 7.247,  15.474]
         asymmetry_gradient =   [10.803, 12.836, 30.701]
         curvature_gradient =   [19.963, 28.813, 20.942]
         hf_damping_gradient =  [23.281, 16.788, 19.332]
     elif prog_item == 2:
-        y_intercept =          [28.707,  23.531,  20.550]
+        y_intercept =          [27.913,  21.405,  17.989]
         colouration_gradient = [63.518,  68.670,  75.145]
         flutter_gradient =     [-4.498,  -12.051, -14.514]
         asymmetry_gradient =   [-25.214, -18.055, -4.025]
@@ -183,7 +183,7 @@ if __name__ == "__main__":
     # SDM.getSpatialAsymmetryScore(spatial_rir, sample_rate, True)
     # FlutterEcho.getFlutterEchoScore(spatial_rir, sample_rate, True)
 
-    # evaluateFeature("Colouration")
-    # evaluateFeature("Asymmetry")
+    evaluateFeature("Colouration")
+    evaluateFeature("Asymmetry")
     evaluateFeature("Flutter")
-    # evaluateFeature("HFDamping")
+    evaluateFeature("HFDamping")
