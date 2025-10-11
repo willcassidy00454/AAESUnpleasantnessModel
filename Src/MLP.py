@@ -1,7 +1,6 @@
 # Run from here to prep everything up to training
 import os
 import random
-import math
 import warnings
 from typing import Optional
 
@@ -27,12 +26,12 @@ BATCH_SIZE = 64
 LR = 1e-3
 WEIGHT_DECAY = 1e-5
 MAX_EPOCHS = 1000
-PATIENCE = 20  # early stopping on val RMSE
+PATIENCE = 12  # early stopping on val RMSE
 EMBED_STIMULUS = False  # set False if you don't want stimulus embedding
 EMBEDDING_DIM = 16
 HIDDEN_SIZES = [16, 32, 64]#, 8]
 DROPOUTS = [0.2, 0.1, 0.0]#, 0.0]
-TEST_SIZE = 0.15
+TEST_SIZE = 0.2
 VAL_SIZE = 0.2
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MODEL_SAVE_PATH = "Src/DeepLearning/best_mlp_model.pt"
@@ -57,7 +56,7 @@ def load_data_or_synth(path: Optional[str]):
         print(f"Loading CSV from {path}")
         df = pd.read_csv(path)
         # Expecting columns: feature_0..feature_4, mean_score, stimulus_id
-        required = ["stimulus_id", "prog_item", "rating", "colouration", "flutter_echo", "asymmetry", "curvature", "spectral_evolution"]
+        required = ["stimulus_id", "prog_item", "rating", "colouration", "flutter_echo", "asymmetry", "curvature", "hf_damping"]
         missing = [c for c in required if c not in df.columns]
         if missing:
             raise ValueError(f"CSV missing required columns: {missing}")
@@ -83,7 +82,7 @@ if len(df) == 0:
 
 print(f"Filtered for prog_item == {TARGET_PROG_ITEM}")
 
-feature_names = ["colouration", "flutter_echo", "curvature", "spectral_evolution"]
+feature_names = ["colouration", "flutter_echo", "curvature", "hf_damping"]
 
 # Omit spatial asymmetry feature from saxophone
 if TARGET_PROG_ITEM == 1:
@@ -120,7 +119,7 @@ print(f"Stimuli in splits — train: {df_train['stimulus_id'].nunique()}, val: {
 class RatingsDataset(Dataset):
     def __init__(self, df: pd.DataFrame, feature_cols, group_col="stimulus_id"):
         self.features = df[feature_cols].values.astype(np.float32)
-        self.targets = df["rating"].values.astype(np.float32).reshape(-1, 1)
+        self.targets = (df["rating"].values.astype(np.float32).reshape(-1, 1)) / 100.0
         self.groups = df[group_col].values.astype(np.int64)
     def __len__(self):
         return len(self.targets)
@@ -194,7 +193,7 @@ class MLPRegressor(nn.Module):
 
         # Output
         # layers.append(nn.ReLU())
-        # layers.append(nn.Sigmoid())
+        layers.append(nn.Sigmoid())
         layers.append(nn.Linear(hidden_sizes[2], 1))
 
         self.net = nn.Sequential(*layers)
@@ -298,7 +297,9 @@ for epoch in range(1, MAX_EPOCHS + 1):
             print(f"Early stopping: no improvement for {PATIENCE} epochs (best val_mse={best_val_mse:.4f})")
             break
 
-plt.plot(range(len(training_loss)), training_loss, "-", range(len(training_loss)), validation_loss, "--")
+plt.plot(range(len(training_loss)), training_loss, "-", label="Training Loss")
+plt.plot(range(len(training_loss)), validation_loss, "--", label="Validation Loss")
+plt.legend()
 plt.show()
 
 # ---------------------------
