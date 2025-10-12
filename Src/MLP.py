@@ -15,11 +15,13 @@ from torch.utils.data import Dataset, DataLoader
 
 import matplotlib.pyplot as plt
 
+import librosa
+
 # ---------------------------
 # User-editable config
 # ---------------------------
 DATA_CSV: Optional[str] = "/Users/willcassidy/Development/GitHub/AAESUnpleasantnessModel-Evaluation/Data/all_results.txt"
-RANDOM_SEED = 30
+RANDOM_SEED = 25
 
 TARGET_PROG_ITEM = 1
 BATCH_SIZE = 64
@@ -29,12 +31,18 @@ MAX_EPOCHS = 1000
 PATIENCE = 12  # early stopping on val RMSE
 EMBED_STIMULUS = False  # set False if you don't want stimulus embedding
 EMBEDDING_DIM = 16
-HIDDEN_SIZES = [16, 32, 64]#, 8]
+HIDDEN_SIZES = [16, 8, 4]#, 8]
 DROPOUTS = [0.2, 0.1, 0.0]#, 0.0]
-TEST_SIZE = 0.2
+TEST_SIZE = 0.15
 VAL_SIZE = 0.2
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MODEL_SAVE_PATH = "Src/DeepLearning/best_mlp_model.pt"
+# Mel spectrogram params
+NUM_MELS = 32
+MEL_POOLING = "mean"
+MEL_FFT_SIZE = 2**10
+MEL_IR_LENGTH_SAMPLES = int(1.0 * 32000.0)
+MEL_HOP_LENGTH = MEL_IR_LENGTH_SAMPLES // 12
 
 # ---------------------------
 # Reproducibility
@@ -47,6 +55,43 @@ def set_seed(seed):
         torch.cuda.manual_seed_all(seed)
 
 set_seed(RANDOM_SEED)
+
+# ---------------------------
+# Load Mel spectrogram for each stimulus
+# ---------------------------
+# Your mapping: stimulus_id → wav file
+def compute_mel_spectrogram(wav_path, max_ir_length_samples=64000, n_mels=64, n_fft=1024, hop_length=512):
+    """Compute a normalized Mel-spectrogram from a wav file."""
+    rir_raw, fs = librosa.load(wav_path)
+
+    if max_ir_length_samples < len(rir_raw):
+        rir_trunc = rir_raw[:max_ir_length_samples]
+    else:
+        rir_trunc = np.zeros(max_ir_length_samples)
+        rir_trunc[:len(rir_raw)] = rir_raw
+
+    S = librosa.feature.melspectrogram(
+        y=rir_trunc, sr=fs, n_mels=n_mels, n_fft=n_fft, hop_length=hop_length, power=2.0
+    )
+    S_db = librosa.power_to_db(S, ref=np.max)
+    # Normalize to 0–1 for stability
+    S_norm = (S_db - S_db.min()) / (S_db.max() - S_db.min() + 1e-9)
+    return S_norm.astype(np.float32)
+
+
+def precompute_mel_features(stimulus_rir_directory, stimulus_rir_filenames):
+    mel_features = []
+
+    for stimulus_index, filename in enumerate(stimulus_rir_filenames):
+        mel = compute_mel_spectrogram(stimulus_rir_directory + filename,
+                                      max_ir_length_samples=MEL_IR_LENGTH_SAMPLES,
+                                      n_mels=NUM_MELS,
+                                      n_fft=MEL_FFT_SIZE,
+                                      hop_length=MEL_HOP_LENGTH)
+        mel_features.append(mel)
+
+    return mel_features
+
 
 # ---------------------------
 # Data loading / synthetic data
@@ -88,7 +133,7 @@ feature_names = ["colouration", "flutter_echo", "curvature", "hf_damping"]
 if TARGET_PROG_ITEM == 1:
     feature_names.append("asymmetry")
 
-print(f"Dataset: {len(df)} ratings, {df['stimulus_id'].nunique()} unique stimuli, {len([c for c in df.columns if c in feature_names])} features")
+print(f"Dataset: {len(df)} ratings, {df['stimulus_id'].nunique()} unique stimuli, {len([c for c in df.columns if c in feature_names])} scalar features")
 
 # ---------------------------
 # Grouped split by stimulus
@@ -113,36 +158,296 @@ df_train, df_val, df_test = grouped_split(df, test_size=TEST_SIZE, val_size=VAL_
 print(f"Split sizes — train: {len(df_train)}, val: {len(df_val)}, test: {len(df_test)}")
 print(f"Stimuli in splits — train: {df_train['stimulus_id'].nunique()}, val: {df_val['stimulus_id'].nunique()}, test: {df_test['stimulus_id'].nunique()}")
 
+
 # ---------------------------
 # Dataset / DataLoader
 # ---------------------------
 class RatingsDataset(Dataset):
-    def __init__(self, df: pd.DataFrame, feature_cols, group_col="stimulus_id"):
-        self.features = df[feature_cols].values.astype(np.float32)
+    def __init__(self, df: pd.DataFrame, mel_features, feature_cols, pool="mean", group_col="stimulus_id"):
+        self.scalar_features = df[feature_cols].values.astype(np.float32)
         self.targets = (df["rating"].values.astype(np.float32).reshape(-1, 1)) / 100.0
         self.groups = df[group_col].values.astype(np.int64)
+        self.stimulus_id = df["stimulus_id"].values.astype(np.int64)
+        self.mel_features = mel_features
+        self.pool = pool
+
     def __len__(self):
         return len(self.targets)
+
     def __getitem__(self, idx):
+        stimulus_index = self.stimulus_id[idx] - 1
+        mel = self.mel_features[stimulus_index] # Stimulus ID 1 is at mel_features[0]
+
+        if self.pool == "mean":
+            mel_feature = mel.mean(axis=1)  # average over time → shape (n_mels,)
+        elif self.pool == "flatten":
+            mel_feature = mel.flatten()
+        else:
+            raise ValueError(f"Unknown pool type: {self.pool}. Use 'mean' or 'flatten'.")
+
         return {
-            "features": torch.from_numpy(self.features[idx]),
+            "features": torch.from_numpy(np.concat([self.scalar_features[idx], mel_feature])),
             "target": torch.from_numpy(self.targets[idx]),
             "stimulus": int(self.groups[idx])
         }
 
+
+rir_directory = "../AAESDatasetGenerator/Audio Data/AAES Receiver RIRs/"
+stimulus_rir_filenames = ["AAES Room 3 Absorption 2 RT 1 Loop Gain 1 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 2 Loop Gain 2 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 3 Loop Gain 1 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 3 Loop Gain 3 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 2 Loop Gain 2 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 2 Loop Gain 3 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 3 Loop Gain 1 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 3 RT 2 Loop Gain 2 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 2 Loop Gain 1 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 3 RT 1 Loop Gain 2 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 2 Loop Gain 3 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 1 Loop Gain 2 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "Src to Rec Room 1 Absorption 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 3 RT 2 Loop Gain 1 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 3 RT 2 Loop Gain 1 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 3 Loop Gain 2 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 1 RT 2 Loop Gain 2 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 2 Loop Gain 1 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 3 Loop Gain 2 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 1 Loop Gain 1 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 1 Loop Gain 3 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 2 Loop Gain 2 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 1 Loop Gain 2 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 2 Loop Gain 2 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "Src to Rec Room 3 Absorption 1/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 2 Loop Gain 3 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 1 Loop Gain 1 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 2 Loop Gain 1 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 2 Loop Gain 3 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 2 Loop Gain 2 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 1 Loop Gain 2 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 1 Loop Gain 1 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 2 Loop Gain 2 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 2 Loop Gain 2 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 2 Loop Gain 3 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 2 Loop Gain 1 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 3 RT 2 Loop Gain 2 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 3 Loop Gain 2 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 1 Loop Gain 2 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 2 Loop Gain 3 Filter 3 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 1 RT 3 Loop Gain 1 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 3 Loop Gain 2 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 1 Loop Gain 2 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 3 RT 1 Loop Gain 2 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 2 Loop Gain 3 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 3 Loop Gain 2 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 1 Loop Gain 1 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 1 RT 3 Loop Gain 1 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 2 Loop Gain 3 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 3 Loop Gain 1 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 3 RT 1 Loop Gain 3 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 3 Loop Gain 2 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 2 Loop Gain 2 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 3 Loop Gain 2 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 3 Loop Gain 3 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 2 Loop Gain 1 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 2 Loop Gain 2 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 1 Loop Gain 2 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 3 Loop Gain 3 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 3 Loop Gain 2 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 3 Loop Gain 3 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 1 Loop Gain 3 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 1 Loop Gain 1 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 2 Loop Gain 2 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 2 Loop Gain 1 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 1 RT 2 Loop Gain 2 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 2 Loop Gain 3 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 1 Loop Gain 2 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 1 Loop Gain 3 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 3 Loop Gain 1 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 2 Loop Gain 2 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 2 Loop Gain 1 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 3 RT 2 Loop Gain 2 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 1 Loop Gain 3 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 3 Loop Gain 2 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 1 Loop Gain 3 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 1 Loop Gain 3 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 2 Loop Gain 3 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 1 Loop Gain 3 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 2 Loop Gain 2 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 1 Loop Gain 2 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 2 Loop Gain 1 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 1 Loop Gain 2 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "Src to Rec Room 2 Absorption 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 2 Loop Gain 3 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 2 Loop Gain 1 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "Src to Rec Room 2 Absorption 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 1 Loop Gain 3 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "Src to Rec Room 3 Absorption 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 2 Loop Gain 3 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 1 RT 1 Loop Gain 1 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 2 Loop Gain 1 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 1 Loop Gain 2 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 3 Loop Gain 1 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 3 Loop Gain 2 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 2 Loop Gain 2 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 1 Loop Gain 3 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 1 RT 3 Loop Gain 2 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 3 Loop Gain 2 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "Src to Rec Room 1 Absorption 1/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 2 Loop Gain 1 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 3 Loop Gain 1 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 1 Loop Gain 2 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 2 Loop Gain 3 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 1 Loop Gain 2 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 3 Loop Gain 2 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 1 Loop Gain 1 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 1 Loop Gain 3 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 1 RT 1 Loop Gain 1 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 3 Loop Gain 2 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 2 Loop Gain 2 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 3 RT 1 Loop Gain 2 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 3 Loop Gain 2 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 2 Loop Gain 2 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 3 Loop Gain 3 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 1 Loop Gain 2 Filter 3 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 3 RT 2 Loop Gain 2 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 3 Loop Gain 2 Filter 3 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 1 Loop Gain 2 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 2 Loop Gain 2 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 1 Loop Gain 2 Filter 3 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 2 Loop Gain 1 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 2 Loop Gain 2 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 1 Loop Gain 3 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "Src to Rec Room 1 Absorption 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 3 Loop Gain 2 Filter 3 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 3 Loop Gain 2 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 2 Loop Gain 1 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 1 Loop Gain 1 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 1 RT 3 Loop Gain 2 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 3 Loop Gain 2 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 2 Loop Gain 1 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 1 Loop Gain 3 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 3 Loop Gain 2 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 2 Loop Gain 2 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 1 RT 3 Loop Gain 2 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 3 Loop Gain 2 Filter 3 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 3 Loop Gain 2 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 1 Loop Gain 2 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 3 Loop Gain 2 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 1 Loop Gain 3 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 3 Loop Gain 1 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 1 RT 2 Loop Gain 3 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 3 Loop Gain 2 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 2 Loop Gain 1 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 2 Loop Gain 3 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 3 Loop Gain 3 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 3 Loop Gain 3 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 1 Loop Gain 2 Filter 3 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 3 Loop Gain 1 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 3 Loop Gain 2 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 3 Loop Gain 2 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 3 Loop Gain 3 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 3 Loop Gain 2 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 2 Loop Gain 2 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 1 Loop Gain 3 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 1 Loop Gain 2 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 1 Loop Gain 1 Filter 3 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 3 Loop Gain 1 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 2 Loop Gain 3 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 1 Loop Gain 2 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 1 Loop Gain 2 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 2 Loop Gain 3 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 1 Loop Gain 2 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 1 Loop Gain 3 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 2 Loop Gain 2 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 2 Loop Gain 3 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 1 Loop Gain 2 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 2 Loop Gain 1 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 2 Loop Gain 2 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 2 Loop Gain 2 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 2 Loop Gain 1 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 1 Loop Gain 1 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 1 Loop Gain 2 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "Src to Rec Room 3 Absorption 2/ReceiverRIR.wav",
+                          "Src to Rec Room 3 Absorption 3/ReceiverRIR.wav",
+                          "Src to Rec Room 3 Absorption 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 1 Loop Gain 2 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 3 Loop Gain 1 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 1 Loop Gain 1 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 2 Loop Gain 3 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 2 Loop Gain 3 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "Src to Rec Room 2 Absorption 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 3 Loop Gain 2 Filter 3 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 1 Loop Gain 2 Filter 3 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 3 RT 1 Loop Gain 3 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 1 RT 3 Loop Gain 2 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 3 RT 1 Loop Gain 2 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "Src to Rec Room 1 Absorption 2/ReceiverRIR.wav",
+                          "Src to Rec Room 2 Absorption 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 2 Loop Gain 3 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 1 Loop Gain 1 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 3 Loop Gain 2 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 3 Loop Gain 3 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 1 RT 2 Loop Gain 2 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 1 Loop Gain 1 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 3 Loop Gain 2 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 1 Loop Gain 2 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 3 Loop Gain 2 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 2 Loop Gain 3 Filter 3 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 3 Loop Gain 2 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 2 Loop Gain 3 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 3 RT 1 Loop Gain 3 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 3 Loop Gain 3 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 2 Loop Gain 1 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 1 Loop Gain 1 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 1 Loop Gain 3 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 1 Loop Gain 3 Filter 1 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 1 Loop Gain 3 Filter 2 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 1 Loop Gain 1 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 2 Loop Gain 1 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 2 Loop Gain 3 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 2 Loop Gain 3 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 2 Loop Gain 3 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "Src to Rec Room 1 Absorption 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 3 RT 2 Loop Gain 2 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 1 RT 2 Loop Gain 2 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "Src to Rec Room 1 Absorption 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 2 Loop Gain 2 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 1 RT 2 Loop Gain 1 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 2 Loop Gain 3 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 2 Loop Gain 3 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 1 Loop Gain 1 Filter 3 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 1 Loop Gain 3 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 1 Loop Gain 2 Filter 1 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 2 RT 3 Loop Gain 2 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "Src to Rec Room 3 Absorption 1/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 3 Loop Gain 2 Filter 2 Routing 1/ReceiverRIR.wav",
+                          "Src to Rec Room 2 Absorption 3/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 1 Loop Gain 2 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 2 Absorption 1 RT 2 Loop Gain 1 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 2 Loop Gain 1 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 2 Loop Gain 3 Filter 3 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 3 Loop Gain 2 Filter 2 Routing 3/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 2 RT 2 Loop Gain 3 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 1 Absorption 2 RT 2 Loop Gain 3 Filter 1 Routing 2/ReceiverRIR.wav",
+                          "AAES Room 3 Absorption 1 RT 2 Loop Gain 3 Filter 3 Routing 3/ReceiverRIR.wav",
+                          "Src to Rec Room 2 Absorption 3/ReceiverRIR.wav"]
+
+mel_features = precompute_mel_features(rir_directory, stimulus_rir_filenames)
+
 feature_cols = [c for c in df.columns if c in feature_names]
-train_ds = RatingsDataset(df_train, feature_cols)
-val_ds = RatingsDataset(df_val, feature_cols)
-test_ds = RatingsDataset(df_test, feature_cols)
+train_ds = RatingsDataset(df_train, mel_features, feature_cols, pool=MEL_POOLING)
+val_ds = RatingsDataset(df_val, mel_features, feature_cols, pool=MEL_POOLING)
+test_ds = RatingsDataset(df_test, mel_features, feature_cols, pool=MEL_POOLING)
 
 train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True, drop_last=False)
 val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False)
 test_loader = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False)
 
+n_mel_frames = mel_features[0].shape[1]
 n_stimuli = int(df["stimulus_id"].nunique())
-n_features = len(feature_cols)
+n_features = len(feature_cols) + (NUM_MELS if MEL_POOLING == "mean" else NUM_MELS * n_mel_frames)
 
-
+print(f"Num scalar features + mel features = {n_features}")
 
 # ---------------------------
 # Model
@@ -169,7 +474,7 @@ class MLPRegressor(nn.Module):
 
         # Layer 1
         layers.append(nn.Linear(input_dim, hidden_sizes[0]))
-        layers.append(nn.BatchNorm1d(hidden_sizes[0]))
+        # layers.append(nn.BatchNorm1d(hidden_sizes[0]))
         layers.append(nn.ReLU())
         layers.append(nn.Dropout(dropout_rates[0]))
 
@@ -181,7 +486,7 @@ class MLPRegressor(nn.Module):
 
         # Layer 3
         layers.append(nn.Linear(hidden_sizes[1], hidden_sizes[2]))
-        # layers.append(nn.LayerNorm(hidden_sizes[2]))
+        # layers.append(nn.BatchNorm1d(hidden_sizes[2]))
         layers.append(nn.ReLU())
         layers.append(nn.Dropout(dropout_rates[2]))
         #
@@ -193,7 +498,7 @@ class MLPRegressor(nn.Module):
 
         # Output
         # layers.append(nn.ReLU())
-        layers.append(nn.Sigmoid())
+        # layers.append(nn.Sigmoid())
         layers.append(nn.Linear(hidden_sizes[2], 1))
 
         self.net = nn.Sequential(*layers)
@@ -244,6 +549,7 @@ def eval_model(loader):
     mae = mean_absolute_error(trues, preds)
     r2 = r2_score(trues, preds)
     return {"mse": mse, "mae": mae, "r2": r2, "preds": preds, "trues": trues}
+
 
 #%% -------------------------
 # Training loop with early stopping
