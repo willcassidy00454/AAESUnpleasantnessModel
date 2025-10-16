@@ -6,19 +6,19 @@ from matplotlib import rc
 if __name__ == "__main__":
     features = ["Colour.", "Flutter", "Asym.", "Curv.", "Damp."]
 
-    standardised_betas = [[0.359, 0.227, 0.236, 0.317, 0.223],
-                          [0.681, -0.147, -0.149, 0.242, -0.200]]
+    standardised_betas = [[0.358, 0.216, 0.245, 0.315, 0.211],
+                          [0.685, -0.155, -0.142, 0.232, -0.210]]
 
     # This is the "part" column in SPSS when showing "part and partial correlations"
     # Each column here is for each programme item
-    semi_partial_correlations = [[0.227, 0.171, 0.164, 0.243, 0.191],
-                                 [0.430, -0.111, -0.103, 0.186, -0.172]]
-    r_squares = [0.726, 0.753]
+    semi_partial_correlations = [[0.226, 0.163, 0.170, 0.243, 0.181],
+                                 [0.432, -0.117, -0.098, 0.179, -0.180]]
+    r_squares = [0.72, 0.74]
 
     unique_proportions_of_data_variance = np.square(semi_partial_correlations)
     unique_proportions_of_model_variance = [unique_proportions_of_data_variance[i, :] / r_squares[i] for i in range(2)]
 
-    significances = [["***", "***", "**", "***", "***"],
+    significances = [["***", "**", "***", "***", "***"],
                      ["***", "*", "*", "***", "***"]]
 
     fig, axes = plt.subplots(2)
