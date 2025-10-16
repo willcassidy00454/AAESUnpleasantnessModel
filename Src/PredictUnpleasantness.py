@@ -109,43 +109,34 @@ def predictUnpleasantnessFromRIR(rir_filepath):
 
 def predictUnpleasantnessFromFeatures(colouration_score, asymmetry_score, flutter_echo_score, curvature_score, spectral_score, prog_item, k_fold=-1):
     if k_fold == -1:
-        k_fold_index = -1
+        k_fold_index = 3
     else:
         k_fold_index = k_fold - 1
 
-    # First three values are from the respective k-fold
+    # First three values are from the respective k-fold, the last is trained on all data
     if prog_item == 1:
-        y_intercept =          [1.332,  4.654,  -5.124]
-        colouration_gradient = [24.351, 40.638, 30.114]
-        flutter_gradient =     [21.366, 7.247,  15.474]
-        asymmetry_gradient =   [10.803, 12.836, 30.701]
-        curvature_gradient =   [19.963, 28.813, 20.942]
-        hf_damping_gradient =  [23.281, 16.788, 19.332]
+        y_intercept =          [2.409,  6.424,  -5.306, 1.111]
+        colouration_gradient = [23.598, 38.458, 29.690, 30.553]
+        flutter_gradient =     [20.797, 6.408,  15.051, 12.825]
+        asymmetry_gradient =   [11.199, 14.196, 30.767, 22.349]
+        curvature_gradient =   [19.369, 29.723, 21.188, 20.129]
+        hf_damping_gradient =  [22.526, 14.415, 20.047, 19.702]
     elif prog_item == 2:
-        y_intercept =          [27.913,  21.405,  17.989]
-        colouration_gradient = [63.518,  68.670,  75.145]
-        flutter_gradient =     [-4.498,  -12.051, -14.514]
-        asymmetry_gradient =   [-25.214, -18.055, -4.025]
-        curvature_gradient =   [13.803,  41.054,  17.725]
-        hf_damping_gradient =  [-14.765, -19.912, -14.660]
+        y_intercept =          [28.750,  24.480,  17.878,  24.587]
+        colouration_gradient = [63.305,  68.913,  74.790,  72.588]
+        flutter_gradient =     [-5.072,  -13.451, -14.902, -12.654]
+        asymmetry_gradient =   [-24.737, -16.476, -3.939,  -13.065]
+        curvature_gradient =   [12.867,  38.217,  17.879,  18.050]
+        hf_damping_gradient =  [-15.195, -23.288, -14.080, -18.369]
     else:
         assert False
 
-    # If k-fold is -1, take the mean coefficients from all folds
-    if k_fold_index == -1:
-        linear_model = (np.mean(y_intercept[0:3])
-                        + np.mean(colouration_gradient[0:3]) * colouration_score
-                        + np.mean(asymmetry_gradient[0:3]) * asymmetry_score
-                        + np.mean(flutter_gradient[0:3]) * flutter_echo_score
-                        + np.mean(curvature_gradient[0:3]) * curvature_score
-                        + np.mean(hf_damping_gradient[0:3]) * spectral_score)
-    else:
-        linear_model = (y_intercept[k_fold_index]
-                        + colouration_gradient[k_fold_index] * colouration_score
-                        + asymmetry_gradient[k_fold_index] * asymmetry_score
-                        + flutter_gradient[k_fold_index] * flutter_echo_score
-                        + curvature_gradient[k_fold_index] * curvature_score
-                        + hf_damping_gradient[k_fold_index] * spectral_score)
+    linear_model = (y_intercept[k_fold_index]
+                    + colouration_gradient[k_fold_index] * colouration_score
+                    + asymmetry_gradient[k_fold_index] * asymmetry_score
+                    + flutter_gradient[k_fold_index] * flutter_echo_score
+                    + curvature_gradient[k_fold_index] * curvature_score
+                    + hf_damping_gradient[k_fold_index] * spectral_score)
 
     return linear_model
 
