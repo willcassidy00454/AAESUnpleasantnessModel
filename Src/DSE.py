@@ -3,21 +3,18 @@ import Energy
 import Utils
 import matplotlib.pyplot as plt
 from scipy.signal import butter, sosfilt
+from scipy import stats
 
 def showPlots(edc_dB,
               edc_times,
-              early_start_dB,
-              early_start_time,
-              early_end_dB,
-              early_end_time,
-              late_start_dB,
-              late_start_time,
-              late_end_dB,
-              late_end_time,
+              early_gradient,
+              late_gradient,
               curvature):
     plt.plot(edc_times, edc_dB)
-    plt.plot([early_start_time, early_end_time], [early_start_dB, early_end_dB], 'bo-')
-    plt.plot([late_start_time, late_end_time], [late_start_dB, late_end_dB], 'ro--')
+    plt.plot(edc_times, np.multiply(edc_times, early_gradient), 'b-')
+    plt.plot(edc_times, np.multiply(edc_times, late_gradient), 'r-')
+    plt.title(f"Curvature = {np.round(curvature, 2)}")
+    plt.ylim([-60, 0])
     plt.show()
 
 def getCurvature(rir, sample_rate, should_high_pass=True, show_plots=False):
@@ -33,27 +30,21 @@ def getCurvature(rir, sample_rate, should_high_pass=True, show_plots=False):
     late_start_dB = -35.0
     late_end_dB = -40.0
 
-    early_start_time = edc_times[Utils.findIndexOfClosest(edc_dB, early_start_dB)]
-    early_end_time = edc_times[Utils.findIndexOfClosest(edc_dB, early_end_dB)]
-    late_start_time = edc_times[Utils.findIndexOfClosest(edc_dB, late_start_dB)]
-    late_end_time = edc_times[Utils.findIndexOfClosest(edc_dB, late_end_dB)]
+    early_start_index = Utils.findIndexOfClosest(edc_dB, early_start_dB)
+    early_end_index = Utils.findIndexOfClosest(edc_dB, early_end_dB)
+    late_start_index = Utils.findIndexOfClosest(edc_dB, late_start_dB)
+    late_end_index = Utils.findIndexOfClosest(edc_dB, late_end_dB)
 
-    early_gradient = (early_end_dB - early_start_dB) / (early_end_time - early_start_time)
-    late_gradient = (late_end_dB - late_start_dB) / (late_end_time - late_start_time)
+    early_gradient, _, _, _, _ = stats.linregress(edc_times[early_start_index:early_end_index], edc_dB[early_start_index:early_end_index])
+    late_gradient, _, _, _, _ = stats.linregress(edc_times[late_start_index:late_end_index], edc_dB[late_start_index:late_end_index])
 
     curvature = 1.0 - (late_gradient / early_gradient)
 
     if show_plots:
         showPlots(edc_dB,
                   edc_times,
-                  early_start_dB,
-                  early_start_time,
-                  early_end_dB,
-                  early_end_time,
-                  late_start_dB,
-                  late_start_time,
-                  late_end_dB,
-                  late_end_time,
+                  early_gradient,
+                  late_gradient,
                   curvature)
 
     return curvature
